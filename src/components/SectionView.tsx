@@ -119,6 +119,22 @@ export function SectionView({
     onUpdateSection(updatedSection);
   };
 
+  const handleMoveItemUp = (index: number) => {
+    if (index > 0) {
+      const updatedItems = [...section.items];
+      [updatedItems[index - 1], updatedItems[index]] = [updatedItems[index], updatedItems[index - 1]];
+      onUpdateSection({ ...section, items: updatedItems });
+    }
+  };
+
+  const handleMoveItemDown = (index: number) => {
+    if (index < section.items.length - 1) {
+      const updatedItems = [...section.items];
+      [updatedItems[index], updatedItems[index + 1]] = [updatedItems[index + 1], updatedItems[index]];
+      onUpdateSection({ ...section, items: updatedItems });
+    }
+  };
+
   const getItemKey = (item: PoseInstance | GroupBlock, index: number): string => {
     return item.id;
   };
@@ -179,6 +195,10 @@ export function SectionView({
           onDelete={() => onDeleteItem(index)}
           onUpdate={(updatedInstance) => handleUpdatePoseInstance(index, updatedInstance)}
           dragHandleProps={getDragHandleProps(index)}
+          onMoveUp={() => handleMoveItemUp(index)}
+          onMoveDown={() => handleMoveItemDown(index)}
+          canMoveUp={index > 0}
+          canMoveDown={index < section.items.length - 1}
         />
       );
     } else {

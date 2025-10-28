@@ -142,9 +142,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className={`container mx-auto ${isMobile ? 'px-2' : 'max-w-2xl'}`}>
+      <div className={`${isMobile ? 'px-4' : 'container mx-auto max-w-4xl px-6'}`}>
         <div className={`${isMobile ? 'py-4' : 'py-6'}`}>
-          <h1 className={`text-center ${isMobile ? 'mb-4 text-xl' : 'mb-6 text-2xl'}`}>Yoga Sequence Builder</h1>
+          <h1 className={`text-center ${isMobile ? 'mb-4 text-xl font-semibold' : 'mb-6 text-2xl font-semibold'}`}>Yoga Sequence Builder</h1>
           
           <Tabs defaultValue="library" className="w-full">
             <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-10' : 'grid-cols-3'}`}>

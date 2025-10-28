@@ -467,7 +467,7 @@ export function SequenceBuilder({
                     onDrop={(e) => handleDrop(e, index)}
                     className={`${draggedSectionIndex === index ? 'opacity-50' : ''} transition-opacity`}
                   >
-                    <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-start gap-2'}`}>
+                    <div className={`flex ${isMobile ? 'flex-col gap-2 p-3 bg-muted/30 rounded-lg border' : 'items-start gap-2'}`}>
                       <div className={`flex ${isMobile ? 'items-center justify-between' : 'items-start gap-2'}`}>
                         <div 
                           draggable

@@ -467,26 +467,22 @@ export function SequenceBuilder({
                     onDrop={(e) => handleDrop(e, index)}
                     className={`${draggedSectionIndex === index ? 'opacity-50' : ''} transition-opacity`}
                   >
-                    <div className={`${isMobile ? 'p-3 bg-muted/30 rounded-lg border' : ''}`}>
-                      <div className={`${isMobile ? 'w-full' : 'flex-1'}`}>
-                        <SectionView
-                          section={section}
-                          poses={poses}
-                          variations={variations}
-                          onDelete={() => handleDeleteSection(index)}
-                          onAddPoseInstance={(poseInstance) => handleAddPoseToSection(index, poseInstance)}
-                          onAddGroupBlock={(groupBlock) => handleAddGroupToSection(index, groupBlock)}
-                          onDeleteItem={(itemIndex) => handleDeleteItemFromSection(index, itemIndex)}
-                          onUpdateSection={(updatedSection) => handleUpdateSection(index, updatedSection)}
-                          groupBlockExpandedStates={groupBlockExpandedStates}
-                          onGroupBlockExpandedChange={handleGroupBlockExpandedChange}
-                          onMoveUp={() => handleMoveSectionUp(index)}
-                          onMoveDown={() => handleMoveSectionDown(index)}
-                          canMoveUp={index > 0}
-                          canMoveDown={index < selectedSequence.sections.length - 1}
-                        />
-                      </div>
-                    </div>
+                    <SectionView
+                      section={section}
+                      poses={poses}
+                      variations={variations}
+                      onDelete={() => handleDeleteSection(index)}
+                      onAddPoseInstance={(poseInstance) => handleAddPoseToSection(index, poseInstance)}
+                      onAddGroupBlock={(groupBlock) => handleAddGroupToSection(index, groupBlock)}
+                      onDeleteItem={(itemIndex) => handleDeleteItemFromSection(index, itemIndex)}
+                      onUpdateSection={(updatedSection) => handleUpdateSection(index, updatedSection)}
+                      groupBlockExpandedStates={groupBlockExpandedStates}
+                      onGroupBlockExpandedChange={handleGroupBlockExpandedChange}
+                      onMoveUp={() => handleMoveSectionUp(index)}
+                      onMoveDown={() => handleMoveSectionDown(index)}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < selectedSequence.sections.length - 1}
+                    />
                     {showIndicatorBelow && (
                       <div className="h-1 bg-primary rounded mt-3" />
                     )}

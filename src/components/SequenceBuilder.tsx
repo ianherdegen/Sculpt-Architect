@@ -467,38 +467,7 @@ export function SequenceBuilder({
                     onDrop={(e) => handleDrop(e, index)}
                     className={`${draggedSectionIndex === index ? 'opacity-50' : ''} transition-opacity`}
                   >
-                    <div className={`flex ${isMobile ? 'flex-col gap-2 p-3 bg-muted/30 rounded-lg border' : 'items-start gap-2'}`}>
-                      <div className={`flex ${isMobile ? 'items-center justify-between' : 'items-start gap-2'}`}>
-                        <div 
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, index)}
-                          className={`cursor-move text-muted-foreground ${isMobile ? '' : 'mt-4'}`}
-                        >
-                          <GripVertical className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                        </div>
-                        {isMobile && (
-                          <div className="flex flex-col gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleMoveSectionUp(index)}
-                              disabled={index === 0}
-                              className="h-6 w-6 p-0"
-                            >
-                              <ChevronUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleMoveSectionDown(index)}
-                              disabled={index === selectedSequence.sections.length - 1}
-                              className="h-6 w-6 p-0"
-                            >
-                              <ChevronDown className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                    <div className={`${isMobile ? 'p-3 bg-muted/30 rounded-lg border' : ''}`}>
                       <div className={`${isMobile ? 'w-full' : 'flex-1'}`}>
                         <SectionView
                           section={section}
@@ -511,13 +480,17 @@ export function SequenceBuilder({
                           onUpdateSection={(updatedSection) => handleUpdateSection(index, updatedSection)}
                           groupBlockExpandedStates={groupBlockExpandedStates}
                           onGroupBlockExpandedChange={handleGroupBlockExpandedChange}
+                          onMoveUp={() => handleMoveSectionUp(index)}
+                          onMoveDown={() => handleMoveSectionDown(index)}
+                          canMoveUp={index > 0}
+                          canMoveDown={index < selectedSequence.sections.length - 1}
                         />
                       </div>
                     </div>
+                    {showIndicatorBelow && (
+                      <div className="h-1 bg-primary rounded mt-3" />
+                    )}
                   </div>
-                  {showIndicatorBelow && (
-                    <div className="h-1 bg-primary rounded mt-3" />
-                  )}
                 </div>
               );
             })}

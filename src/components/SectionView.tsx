@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { PoseInstanceView } from './PoseInstanceView';
 import { GroupBlockView } from './GroupBlockView';
-import { Plus, Trash2, ChevronDown, ChevronRight, Clock } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Clock, ChevronUp } from 'lucide-react';
 import { calculateSectionDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 
@@ -24,6 +24,10 @@ interface SectionViewProps {
   onUpdateSection: (section: Section) => void;
   groupBlockExpandedStates: Record<string, { isOpen: boolean; isBlockExpanded: boolean }>;
   onGroupBlockExpandedChange: (groupBlockId: string, isOpen: boolean, isBlockExpanded: boolean) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function SectionView({
@@ -37,6 +41,10 @@ export function SectionView({
   onUpdateSection,
   groupBlockExpandedStates,
   onGroupBlockExpandedChange,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = false,
+  canMoveDown = false,
 }: SectionViewProps) {
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(true);
@@ -227,12 +235,36 @@ export function SectionView({
     <Card className={`${isMobile ? 'p-3' : 'p-4'}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center mb-3'}`}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="p-0 h-auto flex items-center gap-2">
-              {isOpen ? <ChevronDown className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} /> : <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />}
-              <h3 className={`${isMobile ? 'text-base font-medium' : 'text-lg font-medium'}`}>{section.name}</h3>
-            </Button>
-          </CollapsibleTrigger>
+          <div className={`flex ${isMobile ? 'items-center justify-between w-full' : 'items-center gap-2'}`}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="p-0 h-auto flex items-center gap-2">
+                {isOpen ? <ChevronDown className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} /> : <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />}
+                <h3 className={`${isMobile ? 'text-base font-medium text-left' : 'text-lg font-medium'}`}>{section.name}</h3>
+              </Button>
+            </CollapsibleTrigger>
+            {isMobile && onMoveUp && onMoveDown && (
+              <div className="flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onMoveUp}
+                  disabled={!canMoveUp}
+                  className="h-6 w-6 p-0"
+                >
+                  <ChevronUp className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onMoveDown}
+                  disabled={!canMoveDown}
+                  className="h-6 w-6 p-0"
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
           <div className={`flex ${isMobile ? 'justify-between items-center' : 'items-center gap-3'}`}>
             <span className={`text-sm text-muted-foreground flex items-center gap-1 ${isMobile ? 'text-xs' : ''}`}>
               <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />

@@ -472,6 +472,16 @@ export function GroupBlockView({
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onDelete}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
                 {isMobile && onMoveUp && onMoveDown && (
                   <div className="flex flex-col gap-1">
                     <Button

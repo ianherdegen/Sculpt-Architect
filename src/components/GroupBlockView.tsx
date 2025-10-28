@@ -427,6 +427,7 @@ export function GroupBlockView({
                   {isBlockExpanded ? <ChevronDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} /> : <ChevronRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />}
                 </Button>
               </CollapsibleTrigger>
+              <Badge className={`${isMobile ? 'text-xs' : 'text-xs'}`}>Group Block</Badge>
               <span className={`text-sm font-medium ${isMobile ? 'text-xs' : ''}`}>{groupBlock.sets} sets</span>
             </div>
             <div className={`flex ${isMobile ? 'items-center justify-between' : 'items-center gap-2'}`}>
@@ -439,10 +440,10 @@ export function GroupBlockView({
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className={`h-auto p-0 ${isMobile ? 'flex items-center gap-1' : ''}`}
+                    className={`h-auto p-0 ${isMobile ? 'h-8 w-8' : ''}`}
                   >
                     <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
-                    {isMobile && <span className="text-xs">Edit</span>}
+                    {!isMobile && <span className="ml-1">Edit</span>}
                   </Button>
                 </DialogTrigger>
               <DialogContent>
@@ -492,17 +493,6 @@ export function GroupBlockView({
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </div>
-                )}
-                {isMobile && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onDelete}
-                    className="flex items-center gap-1"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    <span className="text-xs">Delete</span>
-                  </Button>
                 )}
               </div>
             </div>
@@ -789,14 +779,16 @@ export function GroupBlockView({
           </div>
           </CollapsibleContent>
         </Collapsible>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          className={isBlockExpanded ? 'mt-0.5' : ''}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {!isMobile && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className={isBlockExpanded ? 'mt-0.5' : ''}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </Card>
   );

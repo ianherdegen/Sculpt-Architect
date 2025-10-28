@@ -299,7 +299,7 @@ export function SequenceBuilder({
 
   return (
     <div className={`${isMobile ? 'p-0' : 'p-4'} space-y-4`}>
-      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center gap-2'}`}>
+      <div className={`flex ${isMobile ? 'items-center gap-2' : 'justify-between items-center gap-2'}`}>
         <div className="flex-1">
           <Select 
             value={selectedSequenceId || undefined} 
@@ -319,17 +319,16 @@ export function SequenceBuilder({
         </div>
         
         {selectedSequence && (
-          <div className={`flex ${isMobile ? 'gap-2 w-full' : 'gap-1'}`}>
+          <div className={`flex ${isMobile ? 'gap-1' : 'gap-1'}`}>
             <Dialog open={isEditSequenceOpen} onOpenChange={setIsEditSequenceOpen}>
               <DialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  size={isMobile ? "sm" : "icon"}
+                  size="icon"
                   onClick={() => setEditedSequenceName(selectedSequence.name)}
-                  className={isMobile ? 'flex-1' : ''}
+                  className={isMobile ? 'h-8 w-8' : ''}
                 >
-                  <Edit className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4'}`} />
-                  {isMobile && 'Edit'}
+                  <Edit className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -358,11 +357,10 @@ export function SequenceBuilder({
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  size={isMobile ? "sm" : "icon"}
-                  className={isMobile ? 'flex-1' : ''}
+                  size="icon"
+                  className={isMobile ? 'h-8 w-8' : ''}
                 >
-                  <Trash2 className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4'}`} />
-                  {isMobile && 'Delete'}
+                  <Trash2 className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -383,9 +381,8 @@ export function SequenceBuilder({
         
         <Dialog open={isCreateSequenceOpen} onOpenChange={setIsCreateSequenceOpen}>
           <DialogTrigger asChild>
-            <Button className={isMobile ? 'w-full' : ''}>
-              <Plus className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
-              New
+            <Button size="icon" className={isMobile ? 'h-8 w-8' : ''}>
+              <Plus className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
             </Button>
           </DialogTrigger>
           <DialogContent>

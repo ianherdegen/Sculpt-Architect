@@ -150,7 +150,7 @@ export default function App() {
             <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-10' : 'grid-cols-3'}`}>
               <TabsTrigger value="library" className={isMobile ? 'text-xs px-2' : ''}>
                 <Dumbbell className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
-                {isMobile ? 'Library' : 'Pose Library'}
+                {isMobile ? 'Poses' : 'Pose Library'}
               </TabsTrigger>
               <TabsTrigger value="builder" className={isMobile ? 'text-xs px-2' : ''}>
                 <ListOrdered className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />

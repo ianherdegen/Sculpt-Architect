@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PoseInstance, PoseVariation, Pose } from '../types';
 import { Button } from './ui/button';
-import { GripVertical, Trash2, Clock, Edit } from 'lucide-react';
+import { GripVertical, Trash2, Clock, Edit, ChevronUp, ChevronDown } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
@@ -16,6 +16,10 @@ interface PoseInstanceViewProps {
   onDelete: () => void;
   onUpdate?: (updatedInstance: PoseInstance) => void;
   dragHandleProps?: any;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function PoseInstanceView({
@@ -25,6 +29,10 @@ export function PoseInstanceView({
   onDelete,
   onUpdate,
   dragHandleProps,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = false,
+  canMoveDown = false,
 }: PoseInstanceViewProps) {
   const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -63,6 +71,22 @@ export function PoseInstanceView({
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // For mobile devices, we need to handle touch events
+    if (dragHandleProps?.onDragStart) {
+      // Create a synthetic drag event for touch
+      const syntheticEvent = {
+        ...e,
+        dataTransfer: {
+          setData: () => {},
+          getData: () => '',
+        },
+        preventDefault: () => {},
+      } as any;
+      dragHandleProps.onDragStart(syntheticEvent);
+    }
+  };
+
   return (
     <div className={`${isMobile ? 'flex flex-col gap-2 p-2' : 'flex items-center gap-2 p-3'} bg-card border rounded-md`}>
       <div className={`flex ${isMobile ? 'justify-between items-center' : 'items-center gap-2'}`}>
@@ -70,6 +94,7 @@ export function PoseInstanceView({
           {...dragHandleProps} 
           className="cursor-move text-muted-foreground"
           onDragStart={handleDragStart}
+          onTouchStart={handleTouchStart}
         >
           <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
         </div>
@@ -89,6 +114,28 @@ export function PoseInstanceView({
       </div>
       
       <div className={`flex ${isMobile ? 'justify-end gap-1' : 'items-center gap-2'}`}>
+        {isMobile && onMoveUp && onMoveDown && (
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronUp className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              className="h-6 w-6 p-0"
+            >
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
         {onUpdate && (
           <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
             <DialogTrigger asChild>

@@ -217,6 +217,11 @@ export function GroupBlockView({
     setDraggedItemIndex(index);
   };
 
+  const handleTouchStartItem = (e: React.TouchEvent, index: number) => {
+    e.stopPropagation();
+    setDraggedItemIndex(index);
+  };
+
   const handleDragOverItem = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.stopPropagation();
@@ -251,6 +256,12 @@ export function GroupBlockView({
   };
 
   const handleDragStartOverrideItem = (e: React.DragEvent, round: number, index: number) => {
+    e.stopPropagation();
+    setDraggedOverrideRound(round);
+    setDraggedOverrideItemIndex(index);
+  };
+
+  const handleTouchStartOverrideItem = (e: React.TouchEvent, round: number, index: number) => {
     e.stopPropagation();
     setDraggedOverrideRound(round);
     setDraggedOverrideItemIndex(index);
@@ -312,11 +323,13 @@ export function GroupBlockView({
       return {
         draggable: true,
         onDragStart: (e: React.DragEvent) => handleDragStartOverrideItem(e, round, index),
+        onTouchStart: (e: React.TouchEvent) => handleTouchStartOverrideItem(e, round, index),
       };
     }
     return {
       draggable: true,
       onDragStart: (e: React.DragEvent) => handleDragStartItem(e, index),
+      onTouchStart: (e: React.TouchEvent) => handleTouchStartItem(e, index),
     };
   };
 
@@ -357,6 +370,22 @@ export function GroupBlockView({
     }
   };
 
+  const handleTouchStartGroup = (e: React.TouchEvent) => {
+    // For mobile devices, we need to handle touch events
+    if (dragHandleProps?.onDragStart) {
+      // Create a synthetic drag event for touch
+      const syntheticEvent = {
+        ...e,
+        dataTransfer: {
+          setData: () => {},
+          getData: () => '',
+        },
+        preventDefault: () => {},
+      } as any;
+      dragHandleProps.onDragStart(syntheticEvent);
+    }
+  };
+
   return (
     <Card className={`${isMobile ? 'p-2' : 'p-3'} bg-muted/50`}>
       <div className={`flex gap-2 ${isBlockExpanded ? 'items-start' : 'items-center'}`}>
@@ -364,6 +393,7 @@ export function GroupBlockView({
           {...dragHandleProps} 
           className={`cursor-move text-muted-foreground ${isBlockExpanded ? 'pt-0.5' : ''}`}
           onDragStart={handleDragStartGroup}
+          onTouchStart={handleTouchStartGroup}
         >
           <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
         </div>
@@ -441,6 +471,7 @@ export function GroupBlockView({
                     <div
                       draggable
                       onDragStart={(e) => handleDragStartItem(e, index)}
+                      onTouchStart={(e) => handleTouchStartItem(e, index)}
                       onDragOver={(e) => handleDragOverItem(e, index)}
                       onDragLeave={handleDragLeaveItem}
                       onDrop={(e) => handleDropItem(e, index)}
@@ -556,6 +587,7 @@ export function GroupBlockView({
                             <div
                               draggable
                               onDragStart={(e) => handleDragStartOverrideItem(e, override.round, index)}
+                              onTouchStart={(e) => handleTouchStartOverrideItem(e, override.round, index)}
                               onDragOver={(e) => handleDragOverOverrideItem(e, override.round, index)}
                               onDragLeave={handleDragLeaveOverrideItem}
                               onDrop={(e) => handleDropOverrideItem(e, override.round, index)}

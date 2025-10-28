@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { GripVertical, Trash2, Plus, ChevronDown, ChevronRight, PlusCircle, Edit, Clock } from 'lucide-react';
+import { GripVertical, Trash2, Plus, ChevronDown, ChevronRight, PlusCircle, Edit, Clock, ChevronUp } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { PoseInstanceView } from './PoseInstanceView';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -23,6 +23,10 @@ interface GroupBlockViewProps {
   isOpen: boolean;
   isBlockExpanded: boolean;
   onExpandedChange: (isOpen: boolean, isBlockExpanded: boolean) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function GroupBlockView({
@@ -35,6 +39,10 @@ export function GroupBlockView({
   isOpen,
   isBlockExpanded,
   onExpandedChange,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = false,
+  canMoveDown = false,
 }: GroupBlockViewProps) {
   const isMobile = useIsMobile();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
@@ -250,6 +258,42 @@ export function GroupBlockView({
     setDragOverItemIndex(null);
   };
 
+  const handleMoveOverrideItemUp = (round: number, index: number) => {
+    if (index > 0) {
+      const override = groupBlock.roundOverrides.find(ro => ro.round === round);
+      if (override) {
+        const updatedItems = [...override.items];
+        [updatedItems[index - 1], updatedItems[index]] = [updatedItems[index], updatedItems[index - 1]];
+        
+        const updatedOverrides = groupBlock.roundOverrides.map(ro => 
+          ro.round === round ? { ...ro, items: updatedItems } : ro
+        );
+        
+        onUpdate({
+          ...groupBlock,
+          roundOverrides: updatedOverrides,
+        });
+      }
+    }
+  };
+
+  const handleMoveOverrideItemDown = (round: number, index: number) => {
+    const override = groupBlock.roundOverrides.find(ro => ro.round === round);
+    if (override && index < override.items.length - 1) {
+      const updatedItems = [...override.items];
+      [updatedItems[index], updatedItems[index + 1]] = [updatedItems[index + 1], updatedItems[index]];
+      
+      const updatedOverrides = groupBlock.roundOverrides.map(ro => 
+        ro.round === round ? { ...ro, items: updatedItems } : ro
+      );
+      
+      onUpdate({
+        ...groupBlock,
+        roundOverrides: updatedOverrides,
+      });
+    }
+  };
+  
   const handleDragStartOverrideItem = (e: React.DragEvent, round: number, index: number) => {
     e.stopPropagation();
     setDraggedOverrideRound(round);
@@ -326,7 +370,11 @@ export function GroupBlockView({
     onDeleteCallback: () => void,
     onUpdateCallback?: (updatedInstance: PoseInstance) => void,
     isOverride: boolean = false,
-    round?: number
+    round?: number,
+    onMoveUp?: () => void,
+    onMoveDown?: () => void,
+    canMoveUp?: boolean,
+    canMoveDown?: boolean
   ) => {
     const dragHandleProps = getDragHandlePropsForItem(index, isOverride, round);
     
@@ -340,6 +388,10 @@ export function GroupBlockView({
           onDelete={onDeleteCallback}
           onUpdate={onUpdateCallback}
           dragHandleProps={dragHandleProps}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          canMoveUp={canMoveUp}
+          canMoveDown={canMoveDown}
         />
       );
     } else {
@@ -420,6 +472,28 @@ export function GroupBlockView({
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+                {isMobile && onMoveUp && onMoveDown && (
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onMoveUp}
+                      disabled={!canMoveUp}
+                      className="h-6 w-6 p-0"
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onMoveDown}
+                      disabled={!canMoveDown}
+                      className="h-6 w-6 p-0"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
                 {isMobile && (
                   <Button
                     variant="ghost"
@@ -453,7 +527,18 @@ export function GroupBlockView({
                       onDrop={(e) => handleDropItem(e, index)}
                       className={`${draggedItemIndex === index ? 'opacity-50' : ''} transition-opacity`}
                     >
-                      {renderItem(item, index, () => handleDeleteItem(index), (updated) => handleUpdateItem(index, updated), false)}
+                      {renderItem(
+                        item, 
+                        index, 
+                        () => handleDeleteItem(index), 
+                        (updated) => handleUpdateItem(index, updated), 
+                        false,
+                        undefined,
+                        () => handleMoveItemUp(index),
+                        () => handleMoveItemDown(index),
+                        index > 0,
+                        index < groupBlock.items.length - 1
+                      )}
                     </div>
                     {showIndicatorBelow && (
                       <div className="h-1 bg-primary rounded mt-2" />
@@ -573,7 +658,11 @@ export function GroupBlockView({
                                 () => handleDeleteItemFromRoundOverride(override.round, index),
                                 (updated) => handleUpdateItemInRoundOverride(override.round, index, updated),
                                 true,
-                                override.round
+                                override.round,
+                                () => handleMoveOverrideItemUp(override.round, index),
+                                () => handleMoveOverrideItemDown(override.round, index),
+                                index > 0,
+                                index < override.items.length - 1
                               )}
                             </div>
                             {showIndicatorBelow && (

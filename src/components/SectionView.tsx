@@ -214,6 +214,10 @@ export function SectionView({
           isOpen={groupBlockExpandedStates[item.id]?.isOpen ?? true}
           isBlockExpanded={groupBlockExpandedStates[item.id]?.isBlockExpanded ?? true}
           onExpandedChange={(isOpen, isBlockExpanded) => onGroupBlockExpandedChange(item.id, isOpen, isBlockExpanded)}
+          onMoveUp={() => handleMoveItemUp(index)}
+          onMoveDown={() => handleMoveItemDown(index)}
+          canMoveUp={index > 0}
+          canMoveDown={index < section.items.length - 1}
         />
       );
     }

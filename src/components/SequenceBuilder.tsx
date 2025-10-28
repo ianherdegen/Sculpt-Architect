@@ -298,7 +298,7 @@ export function SequenceBuilder({
   };
 
   return (
-    <div className={`${isMobile ? 'p-2' : 'p-4'} space-y-4`}>
+    <div className={`${isMobile ? 'p-0' : 'p-4'} space-y-4`}>
       <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center gap-2'}`}>
         <div className="flex-1">
           <Select 

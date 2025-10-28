@@ -98,14 +98,13 @@ export function PoseInstanceView({
         >
           <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
         </div>
-        <div className={`flex-1 ${isMobile ? 'ml-2' : ''}`}>
+        <div className={`flex-1 ${isMobile ? 'ml-2 text-left' : ''}`}>
           <div className={`flex ${isMobile ? 'flex-col gap-1' : 'items-center gap-2'}`}>
-            <Badge variant="outline" className={`${isMobile ? 'text-xs w-fit' : 'text-xs'}`}>Pose</Badge>
             <span className={`${isMobile ? 'text-sm font-medium' : 'text-sm'}`}>{pose?.name || 'Unknown Pose'}</span>
+            {variation && !variation.name.includes('(Default)') && (
+              <p className={`text-xs text-muted-foreground ${isMobile ? 'mt-1' : 'mt-1'}`}>{variation.name}</p>
+            )}
           </div>
-          {variation && !variation.name.includes('(Default)') && (
-            <p className={`text-xs text-muted-foreground ${isMobile ? 'mt-1' : 'mt-1'}`}>{variation.name}</p>
-          )}
         </div>
         <div className={`flex items-center gap-2 text-sm text-muted-foreground ${isMobile ? 'ml-auto' : ''}`}>
           <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />

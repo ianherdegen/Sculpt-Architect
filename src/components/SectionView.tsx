@@ -230,7 +230,7 @@ export function SectionView({
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="p-0 h-auto flex items-center gap-2">
               {isOpen ? <ChevronDown className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} /> : <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />}
-              <h3 className={isMobile ? 'text-base' : ''}>{section.name}</h3>
+              <h3 className={`${isMobile ? 'text-base font-medium' : 'text-lg font-medium'}`}>{section.name}</h3>
             </Button>
           </CollapsibleTrigger>
           <div className={`flex ${isMobile ? 'justify-between items-center' : 'items-center gap-3'}`}>

@@ -115,9 +115,9 @@ export function PoseLibrary({
   });
 
   return (
-    <div className={`${isMobile ? 'p-2' : 'p-4'} space-y-4`}>
+    <div className={`${isMobile ? 'p-0' : 'p-4'} space-y-4`}>
       <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
-        <h2 className={isMobile ? 'text-lg' : ''}>Pose Library</h2>
+        <h2 className={`${isMobile ? 'text-lg font-semibold' : 'text-xl font-semibold'}`}>Pose Library</h2>
         <Dialog open={isAddPoseOpen} onOpenChange={setIsAddPoseOpen}>
           <DialogTrigger asChild>
             <Button className={isMobile ? 'w-full' : ''}>

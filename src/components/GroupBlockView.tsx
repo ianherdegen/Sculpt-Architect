@@ -427,8 +427,7 @@ export function GroupBlockView({
                   {isBlockExpanded ? <ChevronDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} /> : <ChevronRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />}
                 </Button>
               </CollapsibleTrigger>
-              <Badge className={`${isMobile ? 'text-xs' : 'text-xs'}`}>Group Block</Badge>
-              <span className={`text-sm text-muted-foreground ${isMobile ? 'text-xs' : ''}`}>{groupBlock.sets} sets</span>
+              <span className={`text-sm font-medium ${isMobile ? 'text-xs' : ''}`}>{groupBlock.sets} sets</span>
             </div>
             <div className={`flex ${isMobile ? 'items-center justify-between' : 'items-center gap-2'}`}>
               <span className={`text-sm text-muted-foreground flex items-center gap-1 ${isMobile ? 'text-xs' : ''}`}>

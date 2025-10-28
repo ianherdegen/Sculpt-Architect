@@ -11,6 +11,7 @@ import { PoseInstanceView } from './PoseInstanceView';
 import { GroupBlockView } from './GroupBlockView';
 import { Plus, Trash2, ChevronDown, ChevronRight, Clock } from 'lucide-react';
 import { calculateSectionDuration, formatDuration } from '../lib/timeUtils';
+import { useIsMobile } from './ui/use-mobile';
 
 interface SectionViewProps {
   section: Section;
@@ -37,6 +38,7 @@ export function SectionView({
   groupBlockExpandedStates,
   onGroupBlockExpandedChange,
 }: SectionViewProps) {
+  const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(true);
   const [isAddPoseOpen, setIsAddPoseOpen] = useState(false);
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
@@ -198,22 +200,22 @@ export function SectionView({
   };
 
   return (
-    <Card className="p-4">
+    <Card className={`${isMobile ? 'p-3' : 'p-4'}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <div className="flex justify-between items-center mb-3">
+        <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center mb-3'}`}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="p-0 h-auto flex items-center gap-2">
-              {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-              <h3>{section.name}</h3>
+              {isOpen ? <ChevronDown className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} /> : <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />}
+              <h3 className={isMobile ? 'text-base' : ''}>{section.name}</h3>
             </Button>
           </CollapsibleTrigger>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+          <div className={`flex ${isMobile ? 'justify-between items-center' : 'items-center gap-3'}`}>
+            <span className={`text-sm text-muted-foreground flex items-center gap-1 ${isMobile ? 'text-xs' : ''}`}>
+              <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
               {formatDuration(calculateSectionDuration(section))}
             </span>
             <Button variant="ghost" size="sm" onClick={onDelete}>
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
             </Button>
           </div>
         </div>
@@ -248,11 +250,11 @@ export function SectionView({
               </p>
             )}
 
-            <div className="flex gap-2">
+            <div className={`flex ${isMobile ? 'flex-col gap-2' : 'gap-2'}`}>
               <Dialog open={isAddPoseOpen} onOpenChange={setIsAddPoseOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="flex-1">
-                    <Plus className="h-3 w-3 mr-2" />
+                    <Plus className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-3 w-3 mr-2'}`} />
                     Add Pose
                   </Button>
                 </DialogTrigger>
@@ -316,7 +318,7 @@ export function SectionView({
               <Dialog open={isAddGroupOpen} onOpenChange={setIsAddGroupOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="flex-1">
-                    <Plus className="h-3 w-3 mr-2" />
+                    <Plus className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-3 w-3 mr-2'}`} />
                     Add Group Block
                   </Button>
                 </DialogTrigger>

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { SectionView } from './SectionView';
 import { Plus, FolderOpen, Trash2, Edit, GripVertical, Clock } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
+import { useIsMobile } from './ui/use-mobile';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,7 @@ export function SequenceBuilder({
   variations,
   onUpdateSequences,
 }: SequenceBuilderProps) {
+  const isMobile = useIsMobile();
   const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(
     sequences.length > 0 ? sequences[0].id : null
   );
@@ -272,14 +274,14 @@ export function SequenceBuilder({
   };
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex justify-between items-center gap-2">
+    <div className={`${isMobile ? 'p-2' : 'p-4'} space-y-4`}>
+      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center gap-2'}`}>
         <div className="flex-1">
           <Select 
             value={selectedSequenceId || undefined} 
             onValueChange={setSelectedSequenceId}
           >
-            <SelectTrigger>
+            <SelectTrigger className={isMobile ? 'w-full' : ''}>
               <SelectValue placeholder="Select a sequence" />
             </SelectTrigger>
             <SelectContent>
@@ -293,15 +295,17 @@ export function SequenceBuilder({
         </div>
         
         {selectedSequence && (
-          <>
+          <div className={`flex ${isMobile ? 'gap-2 w-full' : 'gap-1'}`}>
             <Dialog open={isEditSequenceOpen} onOpenChange={setIsEditSequenceOpen}>
               <DialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  size="icon"
+                  size={isMobile ? "sm" : "icon"}
                   onClick={() => setEditedSequenceName(selectedSequence.name)}
+                  className={isMobile ? 'flex-1' : ''}
                 >
-                  <Edit className="h-4 w-4" />
+                  <Edit className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4'}`} />
+                  {isMobile && 'Edit'}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -328,8 +332,13 @@ export function SequenceBuilder({
 
             <AlertDialog open={isDeleteSequenceOpen} onOpenChange={setIsDeleteSequenceOpen}>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Trash2 className="h-4 w-4" />
+                <Button 
+                  variant="outline" 
+                  size={isMobile ? "sm" : "icon"}
+                  className={isMobile ? 'flex-1' : ''}
+                >
+                  <Trash2 className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4'}`} />
+                  {isMobile && 'Delete'}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -345,13 +354,13 @@ export function SequenceBuilder({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </>
+          </div>
         )}
         
         <Dialog open={isCreateSequenceOpen} onOpenChange={setIsCreateSequenceOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button className={isMobile ? 'w-full' : ''}>
+              <Plus className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
               New
             </Button>
           </DialogTrigger>
@@ -380,18 +389,18 @@ export function SequenceBuilder({
 
       {selectedSequence ? (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <h2>{selectedSequence.name}</h2>
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
+          <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
+            <div className={`flex ${isMobile ? 'flex-col gap-1' : 'items-center gap-3'}`}>
+              <h2 className={isMobile ? 'text-lg' : ''}>{selectedSequence.name}</h2>
+              <span className={`text-muted-foreground flex items-center gap-1.5 ${isMobile ? 'text-sm' : ''}`}>
+                <Clock className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 {formatDuration(calculateSequenceDuration(selectedSequence))}
               </span>
             </div>
             <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button className={isMobile ? 'w-full' : ''}>
+                  <Plus className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
                   Add Section
                 </Button>
               </DialogTrigger>

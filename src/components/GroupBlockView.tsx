@@ -11,6 +11,7 @@ import { Badge } from './ui/badge';
 import { PoseInstanceView } from './PoseInstanceView';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { calculateGroupBlockDuration, formatDuration } from '../lib/timeUtils';
+import { useIsMobile } from './ui/use-mobile';
 
 interface GroupBlockViewProps {
   groupBlock: GroupBlock;
@@ -35,6 +36,7 @@ export function GroupBlockView({
   isBlockExpanded,
   onExpandedChange,
 }: GroupBlockViewProps) {
+  const isMobile = useIsMobile();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [isAddRoundOverrideOpen, setIsAddRoundOverrideOpen] = useState(false);
   const [isAddOverrideItemOpen, setIsAddOverrideItemOpen] = useState(false);
@@ -356,26 +358,26 @@ export function GroupBlockView({
   };
 
   return (
-    <Card className="p-3 bg-muted/50">
+    <Card className={`${isMobile ? 'p-2' : 'p-3'} bg-muted/50`}>
       <div className={`flex gap-2 ${isBlockExpanded ? 'items-start' : 'items-center'}`}>
         <div 
           {...dragHandleProps} 
           className={`cursor-move text-muted-foreground ${isBlockExpanded ? 'pt-0.5' : ''}`}
           onDragStart={handleDragStartGroup}
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
         </div>
         <Collapsible open={isBlockExpanded} onOpenChange={(value) => onExpandedChange(isOpen, value)} className="flex-1">
           <div className="flex items-center gap-2">
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="p-0 h-auto">
-                {isBlockExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                {isBlockExpanded ? <ChevronDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} /> : <ChevronRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />}
               </Button>
             </CollapsibleTrigger>
-            <Badge className="text-xs">Group Block</Badge>
-            <span className="text-sm text-muted-foreground">{groupBlock.sets} sets</span>
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+            <Badge className={`${isMobile ? 'text-xs' : 'text-xs'}`}>Group Block</Badge>
+            <span className={`text-sm text-muted-foreground ${isMobile ? 'text-xs' : ''}`}>{groupBlock.sets} sets</span>
+            <span className={`text-sm text-muted-foreground flex items-center gap-1 ${isMobile ? 'text-xs' : ''}`}>
+              <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
               {formatDuration(calculateGroupBlockDuration(groupBlock))}
             </span>
             <Dialog open={isEditSetsOpen} onOpenChange={setIsEditSetsOpen}>
@@ -385,7 +387,7 @@ export function GroupBlockView({
                   size="sm" 
                   className="h-auto p-0"
                 >
-                  <Edit className="h-3 w-3" />
+                  <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
                 </Button>
               </DialogTrigger>
               <DialogContent>

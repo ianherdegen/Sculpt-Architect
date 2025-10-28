@@ -443,15 +443,15 @@ export function SequenceBuilder({
                     onDrop={(e) => handleDrop(e, index)}
                     className={`${draggedSectionIndex === index ? 'opacity-50' : ''} transition-opacity`}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className={`flex ${isMobile ? 'flex-col' : 'items-start gap-2'}`}>
                       <div 
                         draggable
                         onDragStart={(e) => handleDragStart(e, index)}
-                        className="cursor-move text-muted-foreground mt-4"
+                        className={`cursor-move text-muted-foreground ${isMobile ? 'self-start mb-2' : 'mt-4'}`}
                       >
-                        <GripVertical className="h-5 w-5" />
+                        <GripVertical className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
                       </div>
-                      <div className="flex-1">
+                      <div className={`${isMobile ? 'w-full' : 'flex-1'}`}>
                         <SectionView
                           section={section}
                           poses={poses}

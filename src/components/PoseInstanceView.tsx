@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Input } from './ui/input';
+import { useIsMobile } from './ui/use-mobile';
 
 interface PoseInstanceViewProps {
   poseInstance: PoseInstance;
@@ -25,6 +26,7 @@ export function PoseInstanceView({
   onUpdate,
   dragHandleProps,
 }: PoseInstanceViewProps) {
+  const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editedVariationId, setEditedVariationId] = useState(poseInstance.poseVariationId);
   const [editedDuration, setEditedDuration] = useState(poseInstance.duration);
@@ -62,39 +64,42 @@ export function PoseInstanceView({
   };
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-card border rounded-md">
-      <div 
-        {...dragHandleProps} 
-        className="cursor-move text-muted-foreground"
-        onDragStart={handleDragStart}
-      >
-        <GripVertical className="h-4 w-4" />
-      </div>
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">Pose</Badge>
-          <span className="text-sm">{pose?.name || 'Unknown Pose'}</span>
+    <div className={`${isMobile ? 'flex flex-col gap-2 p-2' : 'flex items-center gap-2 p-3'} bg-card border rounded-md`}>
+      <div className={`flex ${isMobile ? 'justify-between items-center' : 'items-center gap-2'}`}>
+        <div 
+          {...dragHandleProps} 
+          className="cursor-move text-muted-foreground"
+          onDragStart={handleDragStart}
+        >
+          <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
         </div>
-        {variation && !variation.name.includes('(Default)') && (
-          <p className="text-xs text-muted-foreground mt-1">{variation.name}</p>
-        )}
-      </div>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Clock className="h-3 w-3" />
-        {poseInstance.duration}
+        <div className={`flex-1 ${isMobile ? 'ml-2' : ''}`}>
+          <div className={`flex ${isMobile ? 'flex-col gap-1' : 'items-center gap-2'}`}>
+            <Badge variant="outline" className={`${isMobile ? 'text-xs w-fit' : 'text-xs'}`}>Pose</Badge>
+            <span className={`${isMobile ? 'text-sm font-medium' : 'text-sm'}`}>{pose?.name || 'Unknown Pose'}</span>
+          </div>
+          {variation && !variation.name.includes('(Default)') && (
+            <p className={`text-xs text-muted-foreground ${isMobile ? 'mt-1' : 'mt-1'}`}>{variation.name}</p>
+          )}
+        </div>
+        <div className={`flex items-center gap-2 text-sm text-muted-foreground ${isMobile ? 'ml-auto' : ''}`}>
+          <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+          <span className={isMobile ? 'text-xs' : ''}>{poseInstance.duration}</span>
+        </div>
       </div>
       
-      {onUpdate && (
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleOpenEdit}
-            >
-              <Edit className="h-3 w-3" />
-            </Button>
-          </DialogTrigger>
+      <div className={`flex ${isMobile ? 'justify-end gap-1' : 'items-center gap-2'}`}>
+        {onUpdate && (
+          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenEdit}
+              >
+                <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Pose Instance</DialogTitle>
@@ -154,8 +159,9 @@ export function PoseInstanceView({
         size="sm"
         onClick={onDelete}
       >
-        <Trash2 className="h-3 w-3" />
+        <Trash2 className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
       </Button>
+      </div>
     </div>
   );
 }

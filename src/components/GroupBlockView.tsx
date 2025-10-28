@@ -435,16 +435,7 @@ export function GroupBlockView({
             </div>
           
           <CollapsibleContent className="mt-3">
-          <Collapsible open={isOpen} onOpenChange={(value) => onExpandedChange(value, isBlockExpanded)}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-0 h-auto mb-2">
-                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                <span className="ml-1 text-xs">
-                  {groupBlock.items.length} item{groupBlock.items.length !== 1 ? 's' : ''}
-                </span>
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-2">
+            <div className="space-y-2">
               {groupBlock.items.map((item, index) => {
                 const showIndicatorAbove = dragOverItemIndex === index && draggedItemIndex !== null && draggedItemIndex > index;
                 const showIndicatorBelow = dragOverItemIndex === index && draggedItemIndex !== null && draggedItemIndex < index;
@@ -537,8 +528,7 @@ export function GroupBlockView({
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </CollapsibleContent>
-          </Collapsible>
+            </div>
 
           <div className="mt-3 space-y-2">
             {groupBlock.roundOverrides.length > 0 && (

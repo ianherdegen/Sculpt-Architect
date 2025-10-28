@@ -6,11 +6,13 @@ import { SequenceLibrary } from './components/SequenceLibrary';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { initialPoses, initialVariations, initialSequences } from './lib/mockData';
 import { Dumbbell, ListOrdered, BookOpen } from 'lucide-react';
+import { useIsMobile } from './components/ui/use-mobile';
 
 export default function App() {
   const [poses, setPoses] = useState<Pose[]>(initialPoses);
   const [variations, setVariations] = useState<PoseVariation[]>(initialVariations);
   const [sequences, setSequences] = useState<Sequence[]>(initialSequences);
+  const isMobile = useIsMobile();
 
   // Helper function to check if a variation is used in any item
   const isVariationUsedInItem = (item: PoseInstance | GroupBlock, variationId: string): boolean => {
@@ -140,23 +142,23 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto">
-        <div className="py-6">
-          <h1 className="text-center mb-6">Yoga Sequence Builder</h1>
+      <div className={`container mx-auto ${isMobile ? 'px-2' : 'max-w-2xl'}`}>
+        <div className={`${isMobile ? 'py-4' : 'py-6'}`}>
+          <h1 className={`text-center ${isMobile ? 'mb-4 text-xl' : 'mb-6 text-2xl'}`}>Yoga Sequence Builder</h1>
           
           <Tabs defaultValue="library" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="library">
-                <Dumbbell className="h-4 w-4 mr-2" />
-                Pose Library
+            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-10' : 'grid-cols-3'}`}>
+              <TabsTrigger value="library" className={isMobile ? 'text-xs px-2' : ''}>
+                <Dumbbell className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
+                {isMobile ? 'Library' : 'Pose Library'}
               </TabsTrigger>
-              <TabsTrigger value="builder">
-                <ListOrdered className="h-4 w-4 mr-2" />
-                Sequence Builder
+              <TabsTrigger value="builder" className={isMobile ? 'text-xs px-2' : ''}>
+                <ListOrdered className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
+                {isMobile ? 'Builder' : 'Sequence Builder'}
               </TabsTrigger>
-              <TabsTrigger value="sequences">
-                <BookOpen className="h-4 w-4 mr-2" />
-                Sequence Library
+              <TabsTrigger value="sequences" className={isMobile ? 'text-xs px-2' : ''}>
+                <BookOpen className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
+                {isMobile ? 'Sequences' : 'Sequence Library'}
               </TabsTrigger>
             </TabsList>
             

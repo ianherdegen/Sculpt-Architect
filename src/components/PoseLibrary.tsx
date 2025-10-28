@@ -8,6 +8,7 @@ import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Badge } from './ui/badge';
 import { Plus, Trash2, Edit, Search } from 'lucide-react';
+import { useIsMobile } from './ui/use-mobile';
 
 interface PoseLibraryProps {
   poses: Pose[];
@@ -32,6 +33,7 @@ export function PoseLibrary({
   onUpdatePoseName,
   onUpdateVariationName,
 }: PoseLibraryProps) {
+  const isMobile = useIsMobile();
   const [isAddPoseOpen, setIsAddPoseOpen] = useState(false);
   const [isAddVariationOpen, setIsAddVariationOpen] = useState(false);
   const [newPoseName, setNewPoseName] = useState('');
@@ -113,13 +115,13 @@ export function PoseLibrary({
   });
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex justify-between items-center">
-        <h2>Pose Library</h2>
+    <div className={`${isMobile ? 'p-2' : 'p-4'} space-y-4`}>
+      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
+        <h2 className={isMobile ? 'text-lg' : ''}>Pose Library</h2>
         <Dialog open={isAddPoseOpen} onOpenChange={setIsAddPoseOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button className={isMobile ? 'w-full' : ''}>
+              <Plus className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
               Add Pose
             </Button>
           </DialogTrigger>
@@ -147,12 +149,12 @@ export function PoseLibrary({
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
         <Input
           placeholder="Search poses and variations..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
+          className={`${isMobile ? 'pl-8 h-8' : 'pl-9'}`}
         />
       </div>
 
@@ -160,15 +162,15 @@ export function PoseLibrary({
         {filteredPoses.map(pose => {
           const poseVariations = getVariationsForPose(pose.id);
           return (
-            <Card key={pose.id} className="p-4">
-              <div className="flex justify-between items-start mb-3">
+            <Card key={pose.id} className={`${isMobile ? 'p-3' : 'p-4'}`}>
+              <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-start mb-3'}`}>
                 <div className="flex-1">
-                  <h3 className="mb-1">{pose.name}</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className={`${isMobile ? 'text-base mb-1' : 'mb-1'}`}>{pose.name}</h3>
+                  <p className={`text-sm text-muted-foreground ${isMobile ? 'text-xs' : ''}`}>
                     {poseVariations.length} variation{poseVariations.length !== 1 ? 's' : ''}
                   </p>
                 </div>
-                <div className="flex gap-1">
+                <div className={`flex ${isMobile ? 'gap-2' : 'gap-1'}`}>
                   <Dialog 
                     open={editingPoseId === pose.id} 
                     onOpenChange={(open) => {
@@ -178,8 +180,9 @@ export function PoseLibrary({
                     }}
                   >
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
+                      <Button variant="ghost" size={isMobile ? "sm" : "sm"} className={isMobile ? 'flex-1' : ''}>
+                        <Edit className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4'}`} />
+                        {isMobile && 'Edit'}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -205,11 +208,13 @@ export function PoseLibrary({
                   </Dialog>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size={isMobile ? "sm" : "sm"}
                     onClick={() => onDeletePose(pose.id)}
                     disabled={poseVariations.length === 0}
+                    className={isMobile ? 'flex-1' : ''}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4'}`} />
+                    {isMobile && 'Delete'}
                   </Button>
                 </div>
               </div>

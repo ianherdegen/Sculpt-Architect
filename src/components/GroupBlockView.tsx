@@ -217,11 +217,6 @@ export function GroupBlockView({
     setDraggedItemIndex(index);
   };
 
-  const handleTouchStartItem = (e: React.TouchEvent, index: number) => {
-    e.stopPropagation();
-    setDraggedItemIndex(index);
-  };
-
   const handleDragOverItem = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.stopPropagation();
@@ -256,12 +251,6 @@ export function GroupBlockView({
   };
 
   const handleDragStartOverrideItem = (e: React.DragEvent, round: number, index: number) => {
-    e.stopPropagation();
-    setDraggedOverrideRound(round);
-    setDraggedOverrideItemIndex(index);
-  };
-
-  const handleTouchStartOverrideItem = (e: React.TouchEvent, round: number, index: number) => {
     e.stopPropagation();
     setDraggedOverrideRound(round);
     setDraggedOverrideItemIndex(index);
@@ -323,13 +312,11 @@ export function GroupBlockView({
       return {
         draggable: true,
         onDragStart: (e: React.DragEvent) => handleDragStartOverrideItem(e, round, index),
-        onTouchStart: (e: React.TouchEvent) => handleTouchStartOverrideItem(e, round, index),
       };
     }
     return {
       draggable: true,
       onDragStart: (e: React.DragEvent) => handleDragStartItem(e, index),
-      onTouchStart: (e: React.TouchEvent) => handleTouchStartItem(e, index),
     };
   };
 
@@ -370,22 +357,6 @@ export function GroupBlockView({
     }
   };
 
-  const handleTouchStartGroup = (e: React.TouchEvent) => {
-    // For mobile devices, we need to handle touch events
-    if (dragHandleProps?.onDragStart) {
-      // Create a synthetic drag event for touch
-      const syntheticEvent = {
-        ...e,
-        dataTransfer: {
-          setData: () => {},
-          getData: () => '',
-        },
-        preventDefault: () => {},
-      } as any;
-      dragHandleProps.onDragStart(syntheticEvent);
-    }
-  };
-
   return (
     <Card className={`${isMobile ? 'p-2' : 'p-3'} bg-muted/50`}>
       <div className={`flex gap-2 ${isBlockExpanded ? 'items-start' : 'items-center'}`}>
@@ -393,33 +364,36 @@ export function GroupBlockView({
           {...dragHandleProps} 
           className={`cursor-move text-muted-foreground ${isBlockExpanded ? 'pt-0.5' : ''}`}
           onDragStart={handleDragStartGroup}
-          onTouchStart={handleTouchStartGroup}
         >
           <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
         </div>
         <Collapsible open={isBlockExpanded} onOpenChange={(value) => onExpandedChange(isOpen, value)} className="flex-1">
-          <div className="flex items-center gap-2">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-0 h-auto">
-                {isBlockExpanded ? <ChevronDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} /> : <ChevronRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />}
-              </Button>
-            </CollapsibleTrigger>
-            <Badge className={`${isMobile ? 'text-xs' : 'text-xs'}`}>Group Block</Badge>
-            <span className={`text-sm text-muted-foreground ${isMobile ? 'text-xs' : ''}`}>{groupBlock.sets} sets</span>
-            <span className={`text-sm text-muted-foreground flex items-center gap-1 ${isMobile ? 'text-xs' : ''}`}>
-              <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
-              {formatDuration(calculateGroupBlockDuration(groupBlock))}
-            </span>
-            <Dialog open={isEditSetsOpen} onOpenChange={setIsEditSetsOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-auto p-0"
-                >
-                  <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+          <div className={`${isMobile ? 'space-y-2' : 'flex items-center gap-2'}`}>
+            <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-2'}`}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-0 h-auto">
+                  {isBlockExpanded ? <ChevronDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} /> : <ChevronRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />}
                 </Button>
-              </DialogTrigger>
+              </CollapsibleTrigger>
+              <Badge className={`${isMobile ? 'text-xs' : 'text-xs'}`}>Group Block</Badge>
+              <span className={`text-sm text-muted-foreground ${isMobile ? 'text-xs' : ''}`}>{groupBlock.sets} sets</span>
+            </div>
+            <div className={`flex ${isMobile ? 'items-center justify-between' : 'items-center gap-2'}`}>
+              <span className={`text-sm text-muted-foreground flex items-center gap-1 ${isMobile ? 'text-xs' : ''}`}>
+                <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+                {formatDuration(calculateGroupBlockDuration(groupBlock))}
+              </span>
+              <Dialog open={isEditSetsOpen} onOpenChange={setIsEditSetsOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`h-auto p-0 ${isMobile ? 'flex items-center gap-1' : ''}`}
+                  >
+                    <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+                    {isMobile && <span className="text-xs">Edit</span>}
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Edit Number of Sets</DialogTitle>
@@ -446,7 +420,19 @@ export function GroupBlockView({
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </div>
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onDelete}
+                    className="flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span className="text-xs">Delete</span>
+                  </Button>
+                )}
+              </div>
+            </div>
           
           <CollapsibleContent className="mt-3">
           <Collapsible open={isOpen} onOpenChange={(value) => onExpandedChange(value, isBlockExpanded)}>
@@ -471,7 +457,6 @@ export function GroupBlockView({
                     <div
                       draggable
                       onDragStart={(e) => handleDragStartItem(e, index)}
-                      onTouchStart={(e) => handleTouchStartItem(e, index)}
                       onDragOver={(e) => handleDragOverItem(e, index)}
                       onDragLeave={handleDragLeaveItem}
                       onDrop={(e) => handleDropItem(e, index)}
@@ -587,7 +572,6 @@ export function GroupBlockView({
                             <div
                               draggable
                               onDragStart={(e) => handleDragStartOverrideItem(e, override.round, index)}
-                              onTouchStart={(e) => handleTouchStartOverrideItem(e, override.round, index)}
                               onDragOver={(e) => handleDragOverOverrideItem(e, override.round, index)}
                               onDragLeave={handleDragLeaveOverrideItem}
                               onDrop={(e) => handleDropOverrideItem(e, override.round, index)}

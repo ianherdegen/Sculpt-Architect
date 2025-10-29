@@ -31,6 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (error) {
         console.error('Error fetching user profile:', error)
+        // If user doesn't exist, clear auth data
+        if (error.code === 'PGRST116') {
+          console.log('User profile not found, clearing auth data')
+          await supabase.auth.signOut()
+        }
         return null
       }
       

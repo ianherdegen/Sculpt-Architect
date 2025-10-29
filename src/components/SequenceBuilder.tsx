@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Section, PoseInstance, GroupBlock, Pose, PoseVariation } from '../types';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -27,7 +27,7 @@ interface SequenceBuilderProps {
   sequences: Sequence[];
   poses: Pose[];
   variations: PoseVariation[];
-  onCreateSequence: (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => Promise<void>;
+  onCreateSequence: (sequence: Omit<Sequence, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   onUpdateSequence: (id: string, updates: Partial<Sequence>) => Promise<void>;
   onDeleteSequence: (id: string) => Promise<void>;
 }
@@ -54,8 +54,44 @@ export function SequenceBuilder({
   const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null);
   const [dragOverSectionIndex, setDragOverSectionIndex] = useState<number | null>(null);
   const [groupBlockExpandedStates, setGroupBlockExpandedStates] = useState<Record<string, { isOpen: boolean; isBlockExpanded: boolean }>>({});
+  const prevSequenceIdsRef = useRef<Set<string>>(new Set(sequences.map(s => s.id)));
+  const isInitialMountRef = useRef(true);
 
   const selectedSequence = sequences.find(s => s.id === selectedSequenceId);
+
+  // Auto-select newly created sequence
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      // Skip auto-selection on initial mount
+      isInitialMountRef.current = false;
+      prevSequenceIdsRef.current = new Set(sequences.map(s => s.id));
+      return;
+    }
+
+    const currentIds = new Set(sequences.map(s => s.id));
+    const prevIds = prevSequenceIdsRef.current;
+    
+    // Find sequences that are new (exist in current but not in previous)
+    const newSequences = sequences.filter(s => !prevIds.has(s.id));
+    
+    if (newSequences.length > 0) {
+      // Select the first newly created sequence
+      const newestSequence = newSequences[0];
+      if (newestSequence) {
+        setSelectedSequenceId(newestSequence.id);
+      }
+    }
+    
+    prevSequenceIdsRef.current = currentIds;
+  }, [sequences]);
+
+  // Update selected sequence if current selection is deleted
+  useEffect(() => {
+    if (selectedSequenceId && !sequences.find(s => s.id === selectedSequenceId)) {
+      // Current selection was deleted, select first available or null
+      setSelectedSequenceId(sequences.length > 0 ? sequences[0].id : null);
+    }
+  }, [sequences, selectedSequenceId]);
 
   const handleCreateSequence = async () => {
     if (!newSequenceName.trim()) return;

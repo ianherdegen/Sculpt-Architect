@@ -50,6 +50,9 @@ export function GroupBlockView({
   const [isAddRoundOverrideOpen, setIsAddRoundOverrideOpen] = useState(false);
   const [isAddOverrideItemOpen, setIsAddOverrideItemOpen] = useState(false);
   const [isEditSetsOpen, setIsEditSetsOpen] = useState(false);
+  const [isEditOverrideSetsOpen, setIsEditOverrideSetsOpen] = useState(false);
+  const [editingOverrideRound, setEditingOverrideRound] = useState<number | null>(null);
+  const [editedOverrideSets, setEditedOverrideSets] = useState('1');
   const [selectedOverrideRound, setSelectedOverrideRound] = useState<number | null>(null);
   
   const [selectedPoseId, setSelectedPoseId] = useState<string>('');
@@ -118,12 +121,31 @@ export function GroupBlockView({
       ...groupBlock,
       roundOverrides: [
         ...groupBlock.roundOverrides,
-        { round: roundNum, items: [] },
+        { round: roundNum, sets: 1, items: [] },
       ].sort((a, b) => a.round - b.round),
     });
 
     setNewRoundNumber('1');
     setIsAddRoundOverrideOpen(false);
+  };
+
+  const handleUpdateOverrideSets = () => {
+    if (!editingOverrideRound) return;
+    const setsNum = parseInt(editedOverrideSets);
+    if (isNaN(setsNum) || setsNum < 1) return;
+
+    const updatedOverrides = groupBlock.roundOverrides.map(ro => 
+      ro.round === editingOverrideRound ? { ...ro, sets: setsNum } : ro
+    );
+
+    onUpdate({
+      ...groupBlock,
+      roundOverrides: updatedOverrides,
+    });
+
+    setIsEditOverrideSetsOpen(false);
+    setEditingOverrideRound(null);
+    setEditedOverrideSets('1');
   };
 
   const handleDeleteRoundOverride = (round: number) => {
@@ -625,14 +647,65 @@ export function GroupBlockView({
                       <div className="flex items-center gap-2">
                         <PlusCircle className="h-3 w-3 text-primary" />
                         <span className="text-xs">Round {override.round}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {override.sets || 1} set{override.sets !== 1 ? 's' : ''}
+                        </Badge>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteRoundOverride(override.round)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Dialog 
+                          open={isEditOverrideSetsOpen && editingOverrideRound === override.round}
+                          onOpenChange={(open) => {
+                            setIsEditOverrideSetsOpen(open);
+                            if (open) {
+                              setEditingOverrideRound(override.round);
+                              setEditedOverrideSets((override.sets || 1).toString());
+                            } else {
+                              setEditingOverrideRound(null);
+                            }
+                          }}
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingOverrideRound(override.round);
+                                setEditedOverrideSets((override.sets || 1).toString());
+                              }}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Edit Sets for Round {override.round}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="override-sets">Number of Sets</Label>
+                                <Input
+                                  id="override-sets"
+                                  type="number"
+                                  min="1"
+                                  value={editedOverrideSets}
+                                  onChange={(e) => setEditedOverrideSets(e.target.value)}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleUpdateOverrideSets()}
+                                />
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button onClick={handleUpdateOverrideSets}>Save</Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteRoundOverride(override.round)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       {override.items.map((item, index) => {

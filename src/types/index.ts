@@ -21,6 +21,7 @@ export type PoseInstance = {
 
 export type RoundOverride = {
   round: number;                 // 1-based round index
+  sets: number;                  // number of times to repeat the items (default 1)
   items: Array<PoseInstance | GroupBlock>;  // additional items appended to the end of this round
 }
 

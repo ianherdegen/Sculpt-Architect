@@ -1,6 +1,8 @@
+import React from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
 import { Clock } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration } from '../lib/timeUtils';
+import { useIsMobile } from './ui/use-mobile';
 
 interface SequenceLibraryProps {
   sequences: Sequence[];
@@ -9,6 +11,8 @@ interface SequenceLibraryProps {
 }
 
 export function SequenceLibrary({ sequences, poses, variations }: SequenceLibraryProps) {
+  const isMobile = useIsMobile();
+  
   const getPoseInfo = (variationId: string) => {
     const variation = variations.find(v => v.id === variationId);
     const pose = variation ? poses.find(p => p.id === variation.poseId) : null;
@@ -45,7 +49,7 @@ export function SequenceLibrary({ sequences, poses, variations }: SequenceLibrar
           </div>
           <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatDuration(calculateGroupBlockDuration(groupBlock, variations))}
+            {formatDuration(calculateGroupBlockDuration(groupBlock))}
           </span>
         </div>
         
@@ -62,7 +66,7 @@ export function SequenceLibrary({ sequences, poses, variations }: SequenceLibrar
         {groupBlock.roundOverrides && groupBlock.roundOverrides.length > 0 && groupBlock.roundOverrides.map((override) => (
           <div key={override.round} className="mt-1" style={{ paddingLeft: `${(indent + 1) * 12}px` }}>
             <div className="text-xs text-muted-foreground mb-0.5">
-              Round {override.round} additions:
+              Round {override.round} additions{override.sets && override.sets > 1 ? ` (${override.sets} sets)` : ''}:
             </div>
             {override.items.map((item, idx) => {
               if (item.type === 'pose_instance') {
@@ -79,8 +83,8 @@ export function SequenceLibrary({ sequences, poses, variations }: SequenceLibrar
 
   if (sequences.length === 0) {
     return (
-      <div className="p-4">
-        <h2 className="mb-4">Sequence Library</h2>
+      <div className={`${isMobile ? 'p-0' : 'p-4'}`}>
+        <h2 className={`mb-4 ${isMobile ? 'text-lg font-semibold' : 'text-xl font-semibold'}`}>Sequence Library</h2>
         <div className="text-center py-12 text-muted-foreground">
           <p>No sequences yet. Create your first sequence to see it here.</p>
         </div>
@@ -89,8 +93,8 @@ export function SequenceLibrary({ sequences, poses, variations }: SequenceLibrar
   }
 
   return (
-    <div className="p-4 space-y-6">
-      <h2>Sequence Library</h2>
+    <div className={`${isMobile ? 'p-0' : 'p-4'} space-y-6`}>
+      <h2 className={`${isMobile ? 'text-lg font-semibold' : 'text-xl font-semibold'}`}>Sequence Library</h2>
       
       {sequences.map(sequence => (
         <div key={sequence.id} className="border rounded-lg p-4 space-y-3">

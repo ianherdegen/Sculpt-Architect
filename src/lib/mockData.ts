@@ -53,6 +53,7 @@ export const initialSequences: Sequence[] = [
             roundOverrides: [
               {
                 round: 3,
+                sets: 1,
                 items: [
                   {
                     type: "pose_instance",

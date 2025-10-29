@@ -80,6 +80,29 @@ ALTER TABLE IF EXISTS pose_variations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS sequences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS user_profiles ENABLE ROW LEVEL SECURITY;
 
+-- Drop any existing policies first
+DROP POLICY IF EXISTS "Allow all operations on poses" ON poses;
+DROP POLICY IF EXISTS "Allow all operations on pose_variations" ON pose_variations;
+DROP POLICY IF EXISTS "Allow all operations on sequences" ON sequences;
+DROP POLICY IF EXISTS "Only admins can modify poses" ON poses;
+DROP POLICY IF EXISTS "Only admins can modify pose variations" ON pose_variations;
+DROP POLICY IF EXISTS "Everyone can view poses" ON poses;
+DROP POLICY IF EXISTS "Everyone can view pose variations" ON pose_variations;
+DROP POLICY IF EXISTS "Users can view their own sequences" ON sequences;
+DROP POLICY IF EXISTS "Users can insert their own sequences" ON sequences;
+DROP POLICY IF EXISTS "Users can update their own sequences" ON sequences;
+DROP POLICY IF EXISTS "Users can delete their own sequences" ON sequences;
+DROP POLICY IF EXISTS "Users can view their own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON user_profiles;
+DROP POLICY IF EXISTS "Only admins can insert poses" ON poses;
+DROP POLICY IF EXISTS "Only admins can update poses" ON poses;
+DROP POLICY IF EXISTS "Only admins can delete poses" ON poses;
+DROP POLICY IF EXISTS "Only admins can insert pose variations" ON pose_variations;
+DROP POLICY IF EXISTS "Only admins can update pose variations" ON pose_variations;
+DROP POLICY IF EXISTS "Only admins can delete pose variations" ON pose_variations;
+
 -- Poses and variations: Everyone can read, only admins can modify
 CREATE POLICY "Everyone can view poses" ON poses FOR SELECT USING (true);
 CREATE POLICY "Only admins can insert poses" ON poses FOR INSERT WITH CHECK (
@@ -175,7 +198,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger to create user profile on signup
+-- Drop existing trigger if it exists, then create new one
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

@@ -61,15 +61,19 @@ END;
 $$ language 'plpgsql';
 
 -- Create triggers for updated_at
+DROP TRIGGER IF EXISTS update_poses_updated_at ON poses;
 CREATE TRIGGER update_poses_updated_at BEFORE UPDATE ON poses
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_pose_variations_updated_at ON pose_variations;
 CREATE TRIGGER update_pose_variations_updated_at BEFORE UPDATE ON pose_variations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_sequences_updated_at ON sequences;
 CREATE TRIGGER update_sequences_updated_at BEFORE UPDATE ON sequences
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
 CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON user_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

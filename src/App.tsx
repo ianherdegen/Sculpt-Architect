@@ -16,6 +16,7 @@ export default function App() {
   const [variations, setVariations] = useState<PoseVariation[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState<'builder' | 'sequences' | 'poses'>('builder');
   const isMobile = useIsMobile();
 
   // Load data from Supabase when user changes
@@ -314,16 +315,16 @@ export default function App() {
               {/* Navigation Links */}
               <div className="flex justify-center space-x-6">
                 <Button
-                  variant={isAdmin ? "outline" : "default"}
-                  onClick={() => {/* Handle navigation to builder */}}
+                  variant={currentPage === 'builder' ? "default" : "outline"}
+                  onClick={() => setCurrentPage('builder')}
                   className="flex items-center gap-2"
                 >
                   <ListOrdered className="h-4 w-4" />
                   Sequence Builder
                 </Button>
                 <Button
-                  variant="outline"
-                  onClick={() => {/* Handle navigation to sequences */}}
+                  variant={currentPage === 'sequences' ? "default" : "outline"}
+                  onClick={() => setCurrentPage('sequences')}
                   className="flex items-center gap-2"
                 >
                   <BookOpen className="h-4 w-4" />
@@ -331,8 +332,8 @@ export default function App() {
                 </Button>
                 {isAdmin && (
                   <Button
-                    variant="outline"
-                    onClick={() => {/* Handle navigation to pose library */}}
+                    variant={currentPage === 'poses' ? "default" : "outline"}
+                    onClick={() => setCurrentPage('poses')}
                     className="flex items-center gap-2"
                   >
                     <Dumbbell className="h-4 w-4" />
@@ -341,33 +342,34 @@ export default function App() {
                 )}
               </div>
 
-              {/* Main Content */}
-              <div className="space-y-6">
-                {/* Sequence Builder */}
-                <div>
-                  <h2 className="text-xl font-semibold mb-4">Sequence Builder</h2>
-                  <SequenceBuilder
-                    sequences={sequences}
-                    poses={poses}
-                    variations={variations}
-                    onCreateSequence={handleCreateSequence}
-                    onUpdateSequence={handleUpdateSequence}
-                    onDeleteSequence={handleDeleteSequence}
-                  />
-                </div>
+              {/* Main Content - Show Only Current Page */}
+              <div>
+                {currentPage === 'builder' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Sequence Builder</h2>
+                    <SequenceBuilder
+                      sequences={sequences}
+                      poses={poses}
+                      variations={variations}
+                      onCreateSequence={handleCreateSequence}
+                      onUpdateSequence={handleUpdateSequence}
+                      onDeleteSequence={handleDeleteSequence}
+                    />
+                  </div>
+                )}
 
-                {/* Sequence Library */}
-                <div>
-                  <h2 className="text-xl font-semibold mb-4">My Sequences</h2>
-                  <SequenceLibrary
-                    sequences={sequences}
-                    poses={poses}
-                    variations={variations}
-                  />
-                </div>
+                {currentPage === 'sequences' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">My Sequences</h2>
+                    <SequenceLibrary
+                      sequences={sequences}
+                      poses={poses}
+                      variations={variations}
+                    />
+                  </div>
+                )}
 
-                {/* Pose Library (Admin Only) */}
-                {isAdmin && (
+                {currentPage === 'poses' && isAdmin && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Manage Poses & Variations</h2>
                     <PoseLibrary

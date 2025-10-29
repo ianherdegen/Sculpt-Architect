@@ -23,11 +23,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      console.log('Attempting to fetch user profile from user_profiles table...')
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      )
+      
+      const fetchPromise = supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
         .single()
+      
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
+      
+      console.log('User profile query result:', { data, error })
       
       if (error) {
         console.error('Error fetching user profile:', error)
@@ -39,9 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null
       }
       
+      console.log('Successfully fetched user profile:', data)
       return data
     } catch (error) {
-      console.error('Error fetching user profile:', error)
+      console.error('Exception fetching user profile:', error)
+      if (error.message === 'Profile fetch timeout') {
+        console.log('Profile fetch timed out, treating as no profile')
+        await supabase.auth.signOut()
+      }
       return null
     }
   }

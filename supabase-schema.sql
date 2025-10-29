@@ -80,9 +80,21 @@ ALTER TABLE IF EXISTS pose_variations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS sequences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS user_profiles ENABLE ROW LEVEL SECURITY;
 
--- Poses and variations: Admin only (for editing), everyone can read
+-- Poses and variations: Everyone can read, only admins can modify
 CREATE POLICY "Everyone can view poses" ON poses FOR SELECT USING (true);
-CREATE POLICY "Only admins can modify poses" ON poses FOR ALL USING (
+CREATE POLICY "Only admins can insert poses" ON poses FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_profiles 
+    WHERE user_id = auth.uid() AND role = 'admin'
+  )
+);
+CREATE POLICY "Only admins can update poses" ON poses FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM user_profiles 
+    WHERE user_id = auth.uid() AND role = 'admin'
+  )
+);
+CREATE POLICY "Only admins can delete poses" ON poses FOR DELETE USING (
   EXISTS (
     SELECT 1 FROM user_profiles 
     WHERE user_id = auth.uid() AND role = 'admin'
@@ -90,7 +102,19 @@ CREATE POLICY "Only admins can modify poses" ON poses FOR ALL USING (
 );
 
 CREATE POLICY "Everyone can view pose variations" ON pose_variations FOR SELECT USING (true);
-CREATE POLICY "Only admins can modify pose variations" ON pose_variations FOR ALL USING (
+CREATE POLICY "Only admins can insert pose variations" ON pose_variations FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM user_profiles 
+    WHERE user_id = auth.uid() AND role = 'admin'
+  )
+);
+CREATE POLICY "Only admins can update pose variations" ON pose_variations FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM user_profiles 
+    WHERE user_id = auth.uid() AND role = 'admin'
+  )
+);
+CREATE POLICY "Only admins can delete pose variations" ON pose_variations FOR DELETE USING (
   EXISTS (
     SELECT 1 FROM user_profiles 
     WHERE user_id = auth.uid() AND role = 'admin'

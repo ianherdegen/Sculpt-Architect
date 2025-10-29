@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { PoseLibrary } from './components/PoseLibrary';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
@@ -311,59 +310,81 @@ export default function App() {
               <p className="text-muted-foreground">Loading...</p>
             </div>
           ) : (
-            <Tabs defaultValue={isAdmin ? "library" : "builder"} className="w-full">
-            <TabsList className={`grid w-full ${isMobile ? `grid-cols-${isAdmin ? '3' : '2'} h-10` : `grid-cols-${isAdmin ? '3' : '2'}`}`}>
-              {isAdmin && (
-                <TabsTrigger value="library" className={isMobile ? 'text-xs px-2' : ''}>
-                  <Dumbbell className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
-                  {isMobile ? 'Poses' : 'Pose Library'}
-                </TabsTrigger>
-              )}
-              <TabsTrigger value="builder" className={isMobile ? 'text-xs px-2' : ''}>
-                <ListOrdered className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
-                {isMobile ? 'Builder' : 'Sequence Builder'}
-              </TabsTrigger>
-              <TabsTrigger value="sequences" className={isMobile ? 'text-xs px-2' : ''}>
-                <BookOpen className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
-                {isMobile ? 'Sequences' : 'Sequence Library'}
-              </TabsTrigger>
-            </TabsList>
-            
-            {isAdmin && (
-              <TabsContent value="library" className="mt-0">
-                <PoseLibrary
-                  poses={poses}
-                  variations={variations}
-                  onAddPose={handleAddPose}
-                  onDeletePose={handleDeletePose}
-                  onAddVariation={handleAddVariation}
-                  onDeleteVariation={handleDeleteVariation}
-                  onSetDefaultVariation={handleSetDefaultVariation}
-                  onUpdatePoseName={handleUpdatePoseName}
-                  onUpdateVariationName={handleUpdateVariationName}
-                />
-              </TabsContent>
-            )}
-            
-            <TabsContent value="builder" className="mt-0">
-              <SequenceBuilder
-                sequences={sequences}
-                poses={poses}
-                variations={variations}
-                onCreateSequence={handleCreateSequence}
-                onUpdateSequence={handleUpdateSequence}
-                onDeleteSequence={handleDeleteSequence}
-              />
-            </TabsContent>
+            <div className="space-y-6">
+              {/* Navigation Links */}
+              <div className="flex justify-center space-x-6">
+                <Button
+                  variant={isAdmin ? "outline" : "default"}
+                  onClick={() => {/* Handle navigation to builder */}}
+                  className="flex items-center gap-2"
+                >
+                  <ListOrdered className="h-4 w-4" />
+                  Sequence Builder
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {/* Handle navigation to sequences */}}
+                  className="flex items-center gap-2"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  My Sequences
+                </Button>
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {/* Handle navigation to pose library */}}
+                    className="flex items-center gap-2"
+                  >
+                    <Dumbbell className="h-4 w-4" />
+                    Manage Poses
+                  </Button>
+                )}
+              </div>
 
-            <TabsContent value="sequences" className="mt-0">
-              <SequenceLibrary
-                sequences={sequences}
-                poses={poses}
-                variations={variations}
-              />
-            </TabsContent>
-          </Tabs>
+              {/* Main Content */}
+              <div className="space-y-6">
+                {/* Sequence Builder */}
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Sequence Builder</h2>
+                  <SequenceBuilder
+                    sequences={sequences}
+                    poses={poses}
+                    variations={variations}
+                    onCreateSequence={handleCreateSequence}
+                    onUpdateSequence={handleUpdateSequence}
+                    onDeleteSequence={handleDeleteSequence}
+                  />
+                </div>
+
+                {/* Sequence Library */}
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">My Sequences</h2>
+                  <SequenceLibrary
+                    sequences={sequences}
+                    poses={poses}
+                    variations={variations}
+                  />
+                </div>
+
+                {/* Pose Library (Admin Only) */}
+                {isAdmin && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Manage Poses & Variations</h2>
+                    <PoseLibrary
+                      poses={poses}
+                      variations={variations}
+                      onAddPose={handleAddPose}
+                      onDeletePose={handleDeletePose}
+                      onAddVariation={handleAddVariation}
+                      onDeleteVariation={handleDeleteVariation}
+                      onSetDefaultVariation={handleSetDefaultVariation}
+                      onUpdatePoseName={handleUpdatePoseName}
+                      onUpdateVariationName={handleUpdateVariationName}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>

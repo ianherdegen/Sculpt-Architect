@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS pose_variations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   pose_id UUID NOT NULL REFERENCES poses(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  is_default BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(pose_id, name)
@@ -76,14 +77,14 @@ INSERT INTO poses (name) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- Insert sample variations for some poses
-INSERT INTO pose_variations (pose_id, name) 
-SELECT p.id, 'Default'
+INSERT INTO pose_variations (pose_id, name, is_default) 
+SELECT p.id, 'Default', true
 FROM poses p
 WHERE p.name IN ('Downward Dog', 'Warrior I', 'Warrior II', 'Tree Pose', 'Child''s Pose')
 ON CONFLICT (pose_id, name) DO NOTHING;
 
-INSERT INTO pose_variations (pose_id, name) 
-SELECT p.id, 'Modified'
+INSERT INTO pose_variations (pose_id, name, is_default) 
+SELECT p.id, 'Modified', false
 FROM poses p
 WHERE p.name IN ('Downward Dog', 'Warrior I')
 ON CONFLICT (pose_id, name) DO NOTHING;

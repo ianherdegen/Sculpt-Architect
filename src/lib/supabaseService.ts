@@ -1,4 +1,20 @@
-import { supabase, Pose, PoseVariation, Sequence } from './supabase'
+import { supabase, Pose, PoseVariation as DBPoseVariation, Sequence } from './supabase'
+import { PoseVariation } from '../types'
+
+// Helper function to convert database format to app format
+const dbToAppVariation = (dbVariation: DBPoseVariation): PoseVariation => ({
+  id: dbVariation.id,
+  poseId: dbVariation.pose_id,
+  name: dbVariation.name,
+  isDefault: dbVariation.is_default
+})
+
+// Helper function to convert app format to database format
+const appToDbVariation = (appVariation: Omit<PoseVariation, 'id' | 'created_at' | 'updated_at'>): Omit<DBPoseVariation, 'id' | 'created_at' | 'updated_at'> => ({
+  pose_id: appVariation.poseId,
+  name: appVariation.name,
+  is_default: appVariation.isDefault
+})
 
 // Pose operations
 export const poseService = {
@@ -54,7 +70,7 @@ export const poseVariationService = {
       .order('name')
     
     if (error) throw error
-    return data || []
+    return (data || []).map(dbToAppVariation)
   },
 
   async getByPoseId(poseId: string): Promise<PoseVariation[]> {
@@ -65,30 +81,36 @@ export const poseVariationService = {
       .order('name')
     
     if (error) throw error
-    return data || []
+    return (data || []).map(dbToAppVariation)
   },
 
   async create(variation: Omit<PoseVariation, 'id' | 'created_at' | 'updated_at'>): Promise<PoseVariation> {
+    const dbVariation = appToDbVariation(variation)
     const { data, error } = await supabase
       .from('pose_variations')
-      .insert(variation)
+      .insert(dbVariation)
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return dbToAppVariation(data)
   },
 
   async update(id: string, updates: Partial<PoseVariation>): Promise<PoseVariation> {
+    const dbUpdates: Partial<DBPoseVariation> = {}
+    if (updates.poseId !== undefined) dbUpdates.pose_id = updates.poseId
+    if (updates.name !== undefined) dbUpdates.name = updates.name
+    if (updates.isDefault !== undefined) dbUpdates.is_default = updates.isDefault
+
     const { data, error } = await supabase
       .from('pose_variations')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return dbToAppVariation(data)
   },
 
   async delete(id: string): Promise<void> {

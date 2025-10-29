@@ -56,6 +56,21 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 5. You can create, edit, and delete sequences (user-specific)
 6. All data will be persisted to your Supabase database
 
+### 6. Create Your First Admin User
+
+1. **Sign up** for an account in your app
+2. **Go to Supabase Dashboard > Table Editor**
+3. **Click on `user_profiles` table**
+4. **Find your user** (look for your email in the auth.users table first to get your user_id)
+5. **Update the role** from 'user' to 'admin':
+   ```sql
+   UPDATE user_profiles 
+   SET role = 'admin' 
+   WHERE user_id = 'your-user-id-here';
+   ```
+6. **Refresh your app** - you should now see the "Pose Library" tab
+7. **You can now add/edit poses and variations**
+
 ## Database Schema
 
 ### Tables Created:
@@ -79,12 +94,20 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
   - `user_id` (UUID, Foreign Key to auth.users) - Links sequences to users
   - `created_at`, `updated_at` (Timestamps)
 
+- **user_profiles**: Stores user roles and permissions
+  - `id` (UUID, Primary Key)
+  - `user_id` (UUID, Foreign Key to auth.users) - Links to user account
+  - `role` (TEXT) - 'user' or 'admin'
+  - `created_at`, `updated_at` (Timestamps)
+
 ### Features:
 
 - **Authentication**: Users must sign up/login to access the app
+- **Role-based Access**: Admin users can manage poses, regular users can only create sequences
 - **User-specific sequences**: Each user only sees their own sequences
-- **Shared pose library**: All users share the same poses and variations
-- **Row Level Security**: Database policies ensure data isolation
+- **Shared pose library**: All users share the same poses and variations (read-only for regular users)
+- **Admin permissions**: Only admins can add/edit/delete poses and variations
+- **Row Level Security**: Database policies ensure proper data isolation and access control
 - **Automatic timestamps**: created_at, updated_at fields
 - **Foreign key relationships**: With cascade delete
 - **Sample data**: 10 poses with default variations

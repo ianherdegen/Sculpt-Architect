@@ -13,6 +13,17 @@ import { Plus, Trash2, ChevronDown, ChevronRight, Clock, ChevronUp, Edit } from 
 import { calculateSectionDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { generateUUID } from '../lib/uuid';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './ui/alert-dialog';
 
 interface SectionViewProps {
   section: Section;
@@ -53,6 +64,7 @@ export function SectionView({
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
   const [isEditSectionOpen, setIsEditSectionOpen] = useState(false);
   const [editedSectionName, setEditedSectionName] = useState('');
+  const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
   
   const [selectedPoseId, setSelectedPoseId] = useState<string>('');
   const [selectedVariationId, setSelectedVariationId] = useState<string>('');
@@ -314,9 +326,28 @@ export function SectionView({
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-              <Button variant="ghost" size="sm" onClick={onDelete}>
-                <Trash2 className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-              </Button>
+              <AlertDialog open={isDeleteSectionOpen} onOpenChange={setIsDeleteSectionOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Trash2 className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Section</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete "{section.name}"? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => {
+                      onDelete();
+                      setIsDeleteSectionOpen(false);
+                    }}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </div>

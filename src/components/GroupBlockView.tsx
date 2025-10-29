@@ -243,6 +243,28 @@ export function GroupBlockView({
     });
   };
 
+  const handleMoveItemUp = (index: number) => {
+    if (index > 0) {
+      const updatedItems = [...groupBlock.items];
+      [updatedItems[index - 1], updatedItems[index]] = [updatedItems[index], updatedItems[index - 1]];
+      onUpdate({
+        ...groupBlock,
+        items: updatedItems,
+      });
+    }
+  };
+
+  const handleMoveItemDown = (index: number) => {
+    if (index < groupBlock.items.length - 1) {
+      const updatedItems = [...groupBlock.items];
+      [updatedItems[index], updatedItems[index + 1]] = [updatedItems[index + 1], updatedItems[index]];
+      onUpdate({
+        ...groupBlock,
+        items: updatedItems,
+      });
+    }
+  };
+
   const handleDragStartItem = (e: React.DragEvent, index: number) => {
     e.stopPropagation();
     setDraggedItemIndex(index);
@@ -404,7 +426,6 @@ export function GroupBlockView({
     if (item.type === 'pose_instance') {
       return (
         <PoseInstanceView
-          key={index}
           poseInstance={item}
           poses={poses}
           variations={variations}

@@ -9,9 +9,22 @@ import { useAuth } from './lib/auth';
 import { Dumbbell, ListOrdered, BookOpen, LogOut } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
+import { useIsMobile } from './components/ui/use-mobile';
 
 export default function App() {
   const { user, signOut, loading: authLoading } = useAuth();
+  const isMobile = useIsMobile();
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsSmallScreen(window.innerWidth < 768);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+  
   const [poses, setPoses] = useState<Pose[]>([]);
   const [variations, setVariations] = useState<PoseVariation[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
@@ -314,14 +327,14 @@ export default function App() {
               </div>
               <div className="absolute right-4 top-1/2 -translate-y-1/2">
                 <Button variant="ghost" size="sm" onClick={() => signOut()}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                  <LogOut className={`h-4 w-4 ${!isSmallScreen ? 'mr-2' : ''}`} />
+                  {!isSmallScreen && 'Logout'}
                 </Button>
               </div>
             </div>
           </header>
           <div className="container max-w-2xl mx-auto">
-            <div className="py-6">
+            <div className={`${isSmallScreen ? 'py-4 px-4' : 'py-6'}`}>
           
           {loading ? (
             <div className="text-center py-12">
@@ -331,21 +344,21 @@ export default function App() {
           ) : (
             <Tabs defaultValue="builder" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="builder">
+                <TabsTrigger value="builder" className={isSmallScreen ? 'text-xs' : ''}>
                   <ListOrdered className="h-4 w-4 mr-2" />
-                  Sequence Builder
+                  {isSmallScreen ? 'Builder' : 'Sequence Builder'}
                 </TabsTrigger>
-                <TabsTrigger value="sequences">
+                <TabsTrigger value="sequences" className={isSmallScreen ? 'text-xs' : ''}>
                   <BookOpen className="h-4 w-4 mr-2" />
-                  Sequence Library
+                  {isSmallScreen ? 'Sequences' : 'Sequence Library'}
                 </TabsTrigger>
-                <TabsTrigger value="library">
+                <TabsTrigger value="library" className={isSmallScreen ? 'text-xs' : ''}>
                   <Dumbbell className="h-4 w-4 mr-2" />
-                  Pose Library
+                  {isSmallScreen ? 'Poses' : 'Pose Library'}
                 </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="builder" className="mt-0">
+              <TabsContent value="builder" className={`${isSmallScreen ? 'mt-4' : 'mt-0'}`}>
                 <SequenceBuilder
                   sequences={sequences}
                   poses={poses}
@@ -356,7 +369,7 @@ export default function App() {
                 />
               </TabsContent>
 
-              <TabsContent value="sequences" className="mt-0">
+              <TabsContent value="sequences" className={`${isSmallScreen ? 'mt-4' : 'mt-0'}`}>
                 <SequenceLibrary
                   sequences={sequences}
                   poses={poses}
@@ -364,7 +377,7 @@ export default function App() {
                 />
               </TabsContent>
 
-              <TabsContent value="library" className="mt-0">
+              <TabsContent value="library" className={`${isSmallScreen ? 'mt-4' : 'mt-0'}`}>
                 <PoseLibrary
                   poses={poses}
                   variations={variations}

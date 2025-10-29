@@ -25,6 +25,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Attempting to fetch user profile from user_profiles table...')
       
+      // Check current session
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Current session during profile fetch:', session?.access_token ? 'Has token' : 'No token')
+      
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
@@ -65,14 +69,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('Initial session:', session)
+      console.log('Initial session (refresh):', session)
       setSession(session)
       setUser(session?.user as User ?? null)
       
       if (session?.user) {
-        console.log('Fetching user profile for:', session.user.id)
+        console.log('Fetching user profile for (refresh):', session.user.id)
         const profile = await fetchUserProfile(session.user.id)
-        console.log('User profile:', profile)
+        console.log('User profile (refresh):', profile)
         setUserProfile(profile)
       } else {
         setUserProfile(null)
@@ -88,14 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session)
+      console.log('Auth state change (login):', event, session)
       setSession(session)
       setUser(session?.user as User ?? null)
       
       if (session?.user) {
-        console.log('Fetching user profile for:', session.user.id)
+        console.log('Fetching user profile for (login):', session.user.id)
         const profile = await fetchUserProfile(session.user.id)
-        console.log('User profile:', profile)
+        console.log('User profile (login):', profile)
         setUserProfile(profile)
       } else {
         setUserProfile(null)

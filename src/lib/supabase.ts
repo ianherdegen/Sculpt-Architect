@@ -34,24 +34,9 @@ export interface PoseVariation {
 
 export interface Sequence {
   id: string
+  user_id: string
   name: string
   sections: any[] // JSON array of sections
-  user_id: string // Add user_id for user-specific sequences
-  created_at: string
-  updated_at: string
-}
-
-// Auth types
-export interface User {
-  id: string
-  email: string
-  created_at: string
-}
-
-export interface UserProfile {
-  id: string
-  user_id: string
-  role: 'user' | 'admin'
   created_at: string
   updated_at: string
 }

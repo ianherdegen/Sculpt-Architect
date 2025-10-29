@@ -50,7 +50,7 @@ export function calculateGroupBlockDuration(groupBlock: GroupBlock): number {
   // Start with base duration multiplied by number of sets
   let totalDuration = baseItemsDuration * groupBlock.sets;
   
-  // Add round override durations
+  // Add round override durations (multiplied by sets)
   groupBlock.roundOverrides.forEach(override => {
     const overrideDuration = override.items.reduce((total, item) => {
       if (item.type === 'pose_instance') {
@@ -59,7 +59,8 @@ export function calculateGroupBlockDuration(groupBlock: GroupBlock): number {
         return total + calculateGroupBlockDuration(item);
       }
     }, 0);
-    totalDuration += overrideDuration;
+    // Multiply by the number of sets for this override
+    totalDuration += overrideDuration * (override.sets || 1);
   });
   
   return totalDuration;

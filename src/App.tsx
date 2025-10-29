@@ -2,32 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { PoseLibrary } from './components/PoseLibrary';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
-import { AuthForm } from './components/AuthForm';
+import { AuthPage } from './components/AuthPage';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import { useAuth } from './lib/auth';
 import { Dumbbell, ListOrdered, BookOpen, LogOut } from 'lucide-react';
-import { useIsMobile } from './components/ui/use-mobile';
 import { Button } from './components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 
 export default function App() {
-  const { user, loading: authLoading, signOut, isAdmin } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const [poses, setPoses] = useState<Pose[]>([]);
   const [variations, setVariations] = useState<PoseVariation[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState<'builder' | 'sequences' | 'poses'>('builder');
-  const isMobile = useIsMobile();
 
-  // Load data from Supabase when user changes
+  // Load data on mount (only if user is logged in)
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       try {
         setLoading(true);
         const [posesData, variationsData, sequencesData] = await Promise.all([
           poseService.getAll(),
           poseVariationService.getAll(),
-          sequenceService.getAll()
+          sequenceService.getAll(user.id)
         ]);
         
         setPoses(posesData);
@@ -44,15 +47,7 @@ export default function App() {
       }
     };
 
-    if (user) {
-      loadData();
-    } else {
-      // Clear data when user logs out
-      setPoses([]);
-      setVariations([]);
-      setSequences([]);
-      setLoading(false);
-    }
+    loadData();
   }, [user]);
 
   // Helper function to check if a variation is used in any item
@@ -111,7 +106,7 @@ export default function App() {
       const newPose = await poseService.create(pose);
       const newVariation = await poseVariationService.create({
         ...defaultVariation,
-        pose_id: newPose.id
+        poseId: newPose.id
       });
       
       setPoses([...poses, newPose]);
@@ -233,12 +228,10 @@ export default function App() {
   };
 
   // Sequence handlers
-  const handleCreateSequence = async (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+  const handleCreateSequence = async (sequence: Omit<Sequence, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    if (!user) return;
     try {
-      const newSequence = await sequenceService.create({
-        ...sequence,
-        user_id: user!.id
-      });
+      const newSequence = await sequenceService.create(sequence, user.id);
       setSequences([...sequences, newSequence]);
     } catch (error) {
       console.error('Error creating sequence:', error);
@@ -247,8 +240,9 @@ export default function App() {
   };
 
   const handleUpdateSequence = async (id: string, updates: Partial<Sequence>) => {
+    if (!user) return;
     try {
-      const updatedSequence = await sequenceService.update(id, updates);
+      const updatedSequence = await sequenceService.update(id, updates, user.id);
       setSequences(sequences.map(s => s.id === id ? updatedSequence : s));
     } catch (error) {
       console.error('Error updating sequence:', error);
@@ -257,8 +251,9 @@ export default function App() {
   };
 
   const handleDeleteSequence = async (id: string) => {
+    if (!user) return;
     try {
-      await sequenceService.delete(id);
+      await sequenceService.delete(id, user.id);
       setSequences(sequences.filter(s => s.id !== id));
     } catch (error) {
       console.error('Error deleting sequence:', error);
@@ -266,44 +261,39 @@ export default function App() {
     }
   };
 
-  // Show loading spinner while auth is loading
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show auth form if user is not logged in
-  if (!user) {
-    return <AuthForm />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
-      <div className={`${isMobile ? 'px-4' : 'container mx-auto max-w-4xl px-6'}`}>
-        <div className={`${isMobile ? 'py-4' : 'py-6'}`}>
-          <div className="flex justify-between items-center mb-6">
-            <h1 className={`text-center flex-1 ${isMobile ? 'text-xl font-semibold' : 'text-2xl font-semibold'}`}>
-              Yoga Sequence Builder
-            </h1>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{user.email}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => signOut()}
-                className="flex items-center gap-1"
-              >
-                <LogOut className="h-4 w-4" />
-                {!isMobile && 'Sign Out'}
-              </Button>
-            </div>
+      {/* Show loading spinner while checking auth */}
+      {authLoading ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
           </div>
+        </div>
+      ) : !user ? (
+        /* Show auth landing page if not logged in */
+        <AuthPage />
+      ) : (
+        /* Show app content if logged in */
+        <div className="min-h-screen bg-background">
+          <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="relative w-full">
+              <div className="container max-w-2xl mx-auto">
+                <div className="flex h-16 items-center justify-center px-6 py-4">
+                  <h1 className="text-xl font-semibold">Sculpt Sequence Builder</h1>
+                </div>
+              </div>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <Button variant="ghost" size="sm" onClick={() => signOut()}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+          </header>
+          <div className="container max-w-2xl mx-auto">
+            <div className="py-6">
           
           {loading ? (
             <div className="text-center py-12">
@@ -311,85 +301,60 @@ export default function App() {
               <p className="text-muted-foreground">Loading...</p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Navigation Links */}
-              <div className="flex justify-center space-x-6">
-                <Button
-                  variant={currentPage === 'builder' ? "default" : "outline"}
-                  onClick={() => setCurrentPage('builder')}
-                  className="flex items-center gap-2"
-                >
-                  <ListOrdered className="h-4 w-4" />
+            <Tabs defaultValue="builder" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="builder">
+                  <ListOrdered className="h-4 w-4 mr-2" />
                   Sequence Builder
-                </Button>
-                <Button
-                  variant={currentPage === 'sequences' ? "default" : "outline"}
-                  onClick={() => setCurrentPage('sequences')}
-                  className="flex items-center gap-2"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  My Sequences
-                </Button>
-                {isAdmin && (
-                  <Button
-                    variant={currentPage === 'poses' ? "default" : "outline"}
-                    onClick={() => setCurrentPage('poses')}
-                    className="flex items-center gap-2"
-                  >
-                    <Dumbbell className="h-4 w-4" />
-                    Manage Poses
-                  </Button>
-                )}
-              </div>
+                </TabsTrigger>
+                <TabsTrigger value="sequences">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Sequence Library
+                </TabsTrigger>
+                <TabsTrigger value="library">
+                  <Dumbbell className="h-4 w-4 mr-2" />
+                  Pose Library
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="builder" className="mt-0">
+                <SequenceBuilder
+                  sequences={sequences}
+                  poses={poses}
+                  variations={variations}
+                  onCreateSequence={handleCreateSequence}
+                  onUpdateSequence={handleUpdateSequence}
+                  onDeleteSequence={handleDeleteSequence}
+                />
+              </TabsContent>
 
-              {/* Main Content - Show Only Current Page */}
-              <div>
-                {currentPage === 'builder' && (
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4">Sequence Builder</h2>
-                    <SequenceBuilder
-                      sequences={sequences}
-                      poses={poses}
-                      variations={variations}
-                      onCreateSequence={handleCreateSequence}
-                      onUpdateSequence={handleUpdateSequence}
-                      onDeleteSequence={handleDeleteSequence}
-                    />
-                  </div>
-                )}
+              <TabsContent value="sequences" className="mt-0">
+                <SequenceLibrary
+                  sequences={sequences}
+                  poses={poses}
+                  variations={variations}
+                />
+              </TabsContent>
 
-                {currentPage === 'sequences' && (
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4">My Sequences</h2>
-                    <SequenceLibrary
-                      sequences={sequences}
-                      poses={poses}
-                      variations={variations}
-                    />
-                  </div>
-                )}
-
-                {currentPage === 'poses' && isAdmin && (
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4">Manage Poses & Variations</h2>
-                    <PoseLibrary
-                      poses={poses}
-                      variations={variations}
-                      onAddPose={handleAddPose}
-                      onDeletePose={handleDeletePose}
-                      onAddVariation={handleAddVariation}
-                      onDeleteVariation={handleDeleteVariation}
-                      onSetDefaultVariation={handleSetDefaultVariation}
-                      onUpdatePoseName={handleUpdatePoseName}
-                      onUpdateVariationName={handleUpdateVariationName}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+              <TabsContent value="library" className="mt-0">
+                <PoseLibrary
+                  poses={poses}
+                  variations={variations}
+                  onAddPose={handleAddPose}
+                  onDeletePose={handleDeletePose}
+                  onAddVariation={handleAddVariation}
+                  onDeleteVariation={handleDeleteVariation}
+                  onSetDefaultVariation={handleSetDefaultVariation}
+                  onUpdatePoseName={handleUpdatePoseName}
+                  onUpdateVariationName={handleUpdateVariationName}
+                />
+              </TabsContent>
+            </Tabs>
           )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

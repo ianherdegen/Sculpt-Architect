@@ -125,21 +125,23 @@ export const poseVariationService = {
 
 // Sequence operations
 export const sequenceService = {
-  async getAll(): Promise<Sequence[]> {
+  async getAll(userId: string): Promise<Sequence[]> {
     const { data, error } = await supabase
       .from('sequences')
       .select('*')
+      .eq('user_id', userId)
       .order('name')
     
     if (error) throw error
     return data || []
   },
 
-  async getById(id: string): Promise<Sequence | null> {
+  async getById(id: string, userId: string): Promise<Sequence | null> {
     const { data, error } = await supabase
       .from('sequences')
       .select('*')
       .eq('id', id)
+      .eq('user_id', userId)
       .single()
     
     if (error) {
@@ -149,10 +151,10 @@ export const sequenceService = {
     return data
   },
 
-  async create(sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at'>): Promise<Sequence> {
+  async create(sequence: Omit<Sequence, 'id' | 'user_id' | 'created_at' | 'updated_at'>, userId: string): Promise<Sequence> {
     const { data, error } = await supabase
       .from('sequences')
-      .insert(sequence)
+      .insert({ ...sequence, user_id: userId })
       .select()
       .single()
     
@@ -160,11 +162,12 @@ export const sequenceService = {
     return data
   },
 
-  async update(id: string, updates: Partial<Sequence>): Promise<Sequence> {
+  async update(id: string, updates: Partial<Sequence>, userId: string): Promise<Sequence> {
     const { data, error } = await supabase
       .from('sequences')
       .update(updates)
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single()
     
@@ -172,11 +175,12 @@ export const sequenceService = {
     return data
   },
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const { error } = await supabase
       .from('sequences')
       .delete()
       .eq('id', id)
+      .eq('user_id', userId)
     
     if (error) throw error
   }

@@ -464,22 +464,35 @@ export function SequenceBuilder({
                     onDrop={(e) => handleDrop(e, index)}
                     className={`${draggedSectionIndex === index ? 'opacity-50' : ''} transition-opacity`}
                   >
-                    <SectionView
-                      section={section}
-                      poses={poses}
-                      variations={variations}
-                      onDelete={() => handleDeleteSection(index)}
-                      onAddPoseInstance={(poseInstance) => handleAddPoseToSection(index, poseInstance)}
-                      onAddGroupBlock={(groupBlock) => handleAddGroupToSection(index, groupBlock)}
-                      onDeleteItem={(itemIndex) => handleDeleteItemFromSection(index, itemIndex)}
-                      onUpdateSection={(updatedSection) => handleUpdateSection(index, updatedSection)}
-                      groupBlockExpandedStates={groupBlockExpandedStates}
-                      onGroupBlockExpandedChange={handleGroupBlockExpandedChange}
-                      onMoveUp={() => handleMoveSectionUp(index)}
-                      onMoveDown={() => handleMoveSectionDown(index)}
-                      canMoveUp={index > 0}
-                      canMoveDown={index < selectedSequence.sections.length - 1}
-                    />
+                    <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-start gap-2'}`}>
+                      {!isMobile && (
+                        <div 
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index)}
+                          className="cursor-move text-muted-foreground mt-4"
+                        >
+                          <GripVertical className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className={`${isMobile ? 'w-full' : 'flex-1'}`}>
+                        <SectionView
+                          section={section}
+                          poses={poses}
+                          variations={variations}
+                          onDelete={() => handleDeleteSection(index)}
+                          onAddPoseInstance={(poseInstance) => handleAddPoseToSection(index, poseInstance)}
+                          onAddGroupBlock={(groupBlock) => handleAddGroupToSection(index, groupBlock)}
+                          onDeleteItem={(itemIndex) => handleDeleteItemFromSection(index, itemIndex)}
+                          onUpdateSection={(updatedSection) => handleUpdateSection(index, updatedSection)}
+                          groupBlockExpandedStates={groupBlockExpandedStates}
+                          onGroupBlockExpandedChange={handleGroupBlockExpandedChange}
+                          onMoveUp={() => handleMoveSectionUp(index)}
+                          onMoveDown={() => handleMoveSectionDown(index)}
+                          canMoveUp={index > 0}
+                          canMoveDown={index < selectedSequence.sections.length - 1}
+                        />
+                      </div>
+                    </div>
                     {showIndicatorBelow && (
                       <div className="h-1 bg-primary rounded mt-3" />
                     )}

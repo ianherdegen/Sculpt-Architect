@@ -41,7 +41,11 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 2. Configure your authentication settings:
    - **Site URL**: `http://localhost:3000` (for development)
    - **Redirect URLs**: Add `http://localhost:3000` for development
-3. You can customize email templates and other auth settings as needed
+3. **IMPORTANT**: For development, disable email confirmation:
+   - Go to Authentication > Settings > Auth
+   - Under "User Signups", **uncheck** "Enable email confirmations"
+   - This allows users to sign up and immediately access the app
+4. You can customize email templates and other auth settings as needed
 
 ### 5. Test the Integration
 

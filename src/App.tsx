@@ -3,19 +3,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { PoseLibrary } from './components/PoseLibrary';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
+import { AuthForm } from './components/AuthForm';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
-import { Dumbbell, ListOrdered, BookOpen } from 'lucide-react';
+import { useAuth } from './lib/auth';
+import { Dumbbell, ListOrdered, BookOpen, LogOut } from 'lucide-react';
 import { useIsMobile } from './components/ui/use-mobile';
+import { Button } from './components/ui/button';
 
 export default function App() {
+  const { user, loading: authLoading, signOut } = useAuth();
   const [poses, setPoses] = useState<Pose[]>([]);
   const [variations, setVariations] = useState<PoseVariation[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
 
-  // Load data from Supabase on component mount
+  // Load data from Supabase when user changes
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -40,8 +44,16 @@ export default function App() {
       }
     };
 
-    loadData();
-  }, []);
+    if (user) {
+      loadData();
+    } else {
+      // Clear data when user logs out
+      setPoses([]);
+      setVariations([]);
+      setSequences([]);
+      setLoading(false);
+    }
+  }, [user]);
 
   // Helper function to check if a variation is used in any item
   const isVariationUsedInItem = (item: PoseInstance | GroupBlock, variationId: string): boolean => {
@@ -221,9 +233,12 @@ export default function App() {
   };
 
   // Sequence handlers
-  const handleCreateSequence = async (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleCreateSequence = async (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     try {
-      const newSequence = await sequenceService.create(sequence);
+      const newSequence = await sequenceService.create({
+        ...sequence,
+        user_id: user!.id
+      });
       setSequences([...sequences, newSequence]);
     } catch (error) {
       console.error('Error creating sequence:', error);
@@ -251,11 +266,44 @@ export default function App() {
     }
   };
 
+  // Show loading spinner while auth is loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth form if user is not logged in
+  if (!user) {
+    return <AuthForm />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className={`${isMobile ? 'px-4' : 'container mx-auto max-w-4xl px-6'}`}>
         <div className={`${isMobile ? 'py-4' : 'py-6'}`}>
-          <h1 className={`text-center ${isMobile ? 'mb-4 text-xl font-semibold' : 'mb-6 text-2xl font-semibold'}`}>Yoga Sequence Builder</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className={`text-center flex-1 ${isMobile ? 'text-xl font-semibold' : 'text-2xl font-semibold'}`}>
+              Yoga Sequence Builder
+            </h1>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{user.email}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => signOut()}
+                className="flex items-center gap-1"
+              >
+                <LogOut className="h-4 w-4" />
+                {!isMobile && 'Sign Out'}
+              </Button>
+            </div>
+          </div>
           
           {loading ? (
             <div className="text-center py-12">

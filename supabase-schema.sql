@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS sequences (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   sections JSONB NOT NULL DEFAULT '[]'::jsonb,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS sequences (
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_pose_variations_pose_id ON pose_variations(pose_id);
 CREATE INDEX IF NOT EXISTS idx_sequences_name ON sequences(name);
+CREATE INDEX IF NOT EXISTS idx_sequences_user_id ON sequences(user_id);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -57,10 +59,16 @@ CREATE TRIGGER update_pose_variations_updated_at BEFORE UPDATE ON pose_variation
 CREATE TRIGGER update_sequences_updated_at BEFORE UPDATE ON sequences
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Row Level Security Policies (allow all operations for now - you can restrict later)
+-- Row Level Security Policies
+-- Poses and variations are public (shared library)
 CREATE POLICY "Allow all operations on poses" ON poses FOR ALL USING (true);
 CREATE POLICY "Allow all operations on pose_variations" ON pose_variations FOR ALL USING (true);
-CREATE POLICY "Allow all operations on sequences" ON sequences FOR ALL USING (true);
+
+-- Sequences are user-specific
+CREATE POLICY "Users can view their own sequences" ON sequences FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own sequences" ON sequences FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own sequences" ON sequences FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own sequences" ON sequences FOR DELETE USING (auth.uid() = user_id);
 
 -- Insert some sample data
 INSERT INTO poses (name) VALUES 

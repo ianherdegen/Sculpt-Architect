@@ -7,7 +7,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+})
 
 // Database types
 export interface Pose {
@@ -30,6 +36,14 @@ export interface Sequence {
   id: string
   name: string
   sections: any[] // JSON array of sections
+  user_id: string // Add user_id for user-specific sequences
   created_at: string
   updated_at: string
+}
+
+// Auth types
+export interface User {
+  id: string
+  email: string
+  created_at: string
 }

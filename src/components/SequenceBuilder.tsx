@@ -27,7 +27,7 @@ interface SequenceBuilderProps {
   sequences: Sequence[];
   poses: Pose[];
   variations: PoseVariation[];
-  onCreateSequence: (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  onCreateSequence: (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => Promise<void>;
   onUpdateSequence: (id: string, updates: Partial<Sequence>) => Promise<void>;
   onDeleteSequence: (id: string) => Promise<void>;
 }

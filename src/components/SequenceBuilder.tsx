@@ -11,6 +11,7 @@ import { Plus, FolderOpen, Trash2, Edit, GripVertical, Clock, ChevronUp, Chevron
 import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { generateUUID } from '../lib/uuid';
+import { DEFAULT_SEQUENCE_TEMPLATE, generateTemplateWithNewIds } from '../lib/defaultSequenceTemplate';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +52,7 @@ export function SequenceBuilder({
   const [newSequenceName, setNewSequenceName] = useState('');
   const [editedSequenceName, setEditedSequenceName] = useState('');
   const [newSectionName, setNewSectionName] = useState('');
+  const [useTemplate, setUseTemplate] = useState(false);
   const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null);
   const [dragOverSectionIndex, setDragOverSectionIndex] = useState<number | null>(null);
   const [groupBlockExpandedStates, setGroupBlockExpandedStates] = useState<Record<string, { isOpen: boolean; isBlockExpanded: boolean }>>({});
@@ -98,11 +100,12 @@ export function SequenceBuilder({
 
     const newSequence = {
       name: newSequenceName.trim(),
-      sections: [],
+      sections: useTemplate ? generateTemplateWithNewIds(DEFAULT_SEQUENCE_TEMPLATE) : [],
     };
 
     await onCreateSequence(newSequence);
     setNewSequenceName('');
+    setUseTemplate(false);
     setIsCreateSequenceOpen(false);
   };
 
@@ -371,6 +374,26 @@ export function SequenceBuilder({
                   onChange={(e) => setNewSequenceName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateSequence()}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Template</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="use-template"
+                    checked={useTemplate}
+                    onChange={(e) => setUseTemplate(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="use-template" className="text-sm font-normal">
+                    Start with default sequence template
+                  </Label>
+                </div>
+                {useTemplate && (
+                  <p className="text-xs text-muted-foreground">
+                    This will create a comprehensive yoga/sculpt sequence with 11 sections including warm-up, sun salutations, cardio, and cool down.
+                  </p>
+                )}
               </div>
             </div>
             <DialogFooter>

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { GripVertical, Trash2, Plus, ChevronDown, ChevronRight, PlusCircle, Edit, Clock, ChevronUp } from 'lucide-react';
+import { GripVertical, Trash2, Plus, ChevronDown, ChevronRight, PlusCircle, Edit, Clock, ChevronUp, RefreshCw } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { PoseInstanceView } from './PoseInstanceView';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -48,12 +48,17 @@ export function GroupBlockView({
   const isMobile = useIsMobile();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [isAddRoundOverrideOpen, setIsAddRoundOverrideOpen] = useState(false);
+  const [isAddItemSubstituteOpen, setIsAddItemSubstituteOpen] = useState(false);
   const [isAddOverrideItemOpen, setIsAddOverrideItemOpen] = useState(false);
+  const [isEditItemSubstituteOpen, setIsEditItemSubstituteOpen] = useState(false);
   const [isEditSetsOpen, setIsEditSetsOpen] = useState(false);
   const [isEditOverrideSetsOpen, setIsEditOverrideSetsOpen] = useState(false);
   const [editingOverrideRound, setEditingOverrideRound] = useState<number | null>(null);
   const [editedOverrideSets, setEditedOverrideSets] = useState('1');
   const [selectedOverrideRound, setSelectedOverrideRound] = useState<number | null>(null);
+  const [selectedSubstituteRound, setSelectedSubstituteRound] = useState<number | null>(null);
+  const [selectedSubstituteItemIndex, setSelectedSubstituteItemIndex] = useState<number | null>(null);
+  const [editingSubstituteId, setEditingSubstituteId] = useState<string | null>(null);
   
   const [selectedPoseId, setSelectedPoseId] = useState<string>('');
   const [selectedVariationId, setSelectedVariationId] = useState<string>('');
@@ -65,6 +70,9 @@ export function GroupBlockView({
   const [draggedOverrideItemIndex, setDraggedOverrideItemIndex] = useState<number | null>(null);
   const [dragOverOverrideItemIndex, setDragOverOverrideItemIndex] = useState<number | null>(null);
   const [draggedOverrideRound, setDraggedOverrideRound] = useState<number | null>(null);
+  const [draggedSubstituteItemIndex, setDraggedSubstituteItemIndex] = useState<number | null>(null);
+  const [dragOverSubstituteItemIndex, setDragOverSubstituteItemIndex] = useState<number | null>(null);
+  const [draggedSubstituteRound, setDraggedSubstituteRound] = useState<number | null>(null);
 
   const handlePoseChange = (poseId: string) => {
     setSelectedPoseId(poseId);
@@ -159,16 +167,76 @@ export function GroupBlockView({
     const setsNum = parseInt(editedSets);
     if (isNaN(setsNum) || setsNum < 1) return;
 
-    // Filter out round overrides that are now beyond the new sets count
+    const itemSubstitutes = groupBlock.itemSubstitutes || [];
+    // Filter out round overrides and item substitutes that are now beyond the new sets count
     const filteredOverrides = groupBlock.roundOverrides.filter(ro => ro.round <= setsNum);
+    const filteredSubstitutes = itemSubstitutes.filter(is => is.round <= setsNum);
 
     onUpdate({
       ...groupBlock,
       sets: setsNum,
       roundOverrides: filteredOverrides,
+      itemSubstitutes: filteredSubstitutes,
     });
 
     setIsEditSetsOpen(false);
+  };
+
+  // Item Substitute handlers
+  const handleAddItemSubstitute = (round: number, itemIndex: number) => {
+    if (!selectedVariationId || !duration) return;
+
+    const newPoseInstance: PoseInstance = {
+      type: 'pose_instance',
+      id: generateUUID(),
+      poseVariationId: selectedVariationId,
+      duration: duration,
+    };
+
+    const itemSubstitutes = groupBlock.itemSubstitutes || [];
+    // Check if substitute already exists for this round and item index
+    if (itemSubstitutes.some(is => is.round === round && is.itemIndex === itemIndex)) {
+      alert(`Item ${itemIndex + 1} in Round ${round} already has a substitute`);
+      return;
+    }
+
+    onUpdate({
+      ...groupBlock,
+      itemSubstitutes: [
+        ...itemSubstitutes,
+        { round, itemIndex, substituteItem: newPoseInstance },
+      ].sort((a, b) => a.round - b.round || a.itemIndex - b.itemIndex),
+    });
+
+    setSelectedPoseId('');
+    setSelectedVariationId('');
+    setDuration('00:30');
+    setIsAddItemSubstituteOpen(false);
+    setSelectedSubstituteRound(null);
+    setSelectedSubstituteItemIndex(null);
+  };
+
+  const handleDeleteItemSubstitute = (round: number, itemIndex: number) => {
+    const itemSubstitutes = groupBlock.itemSubstitutes || [];
+    onUpdate({
+      ...groupBlock,
+      itemSubstitutes: itemSubstitutes.filter(is => !(is.round === round && is.itemIndex === itemIndex)),
+    });
+  };
+
+  const handleUpdateItemSubstitute = (round: number, itemIndex: number, updatedItem: PoseInstance | GroupBlock) => {
+    const itemSubstitutes = groupBlock.itemSubstitutes || [];
+    const updatedSubstitutes = itemSubstitutes.map(is => {
+      if (is.round === round && is.itemIndex === itemIndex) {
+        return { ...is, substituteItem: updatedItem };
+      }
+      return is;
+    });
+
+    onUpdate({
+      ...groupBlock,
+      itemSubstitutes: updatedSubstitutes,
+    });
   };
 
   const handleAddItemToRoundOverride = (round: number) => {
@@ -557,6 +625,10 @@ export function GroupBlockView({
                 const showIndicatorAbove = dragOverItemIndex === index && draggedItemIndex !== null && draggedItemIndex > index;
                 const showIndicatorBelow = dragOverItemIndex === index && draggedItemIndex !== null && draggedItemIndex < index;
                 
+                // Check which rounds have substitutions for this item
+                const itemSubstitutes = groupBlock.itemSubstitutes || [];
+                const substitutionsForThisItem = itemSubstitutes.filter(is => is.itemIndex === index);
+                
                 return (
                   <div key={getItemKey(item, index, 'item')}>
                     {showIndicatorAbove && (
@@ -570,18 +642,72 @@ export function GroupBlockView({
                       onDrop={(e) => handleDropItem(e, index)}
                       className={`${draggedItemIndex === index ? 'opacity-50' : ''} transition-opacity`}
                     >
-                      {renderItem(
-                        item, 
-                        index, 
-                        () => handleDeleteItem(index), 
-                        (updated) => handleUpdateItem(index, updated), 
-                        false,
-                        undefined,
-                        () => handleMoveItemUp(index),
-                        () => handleMoveItemDown(index),
-                        index > 0,
-                        index < groupBlock.items.length - 1
-                      )}
+                      <div className="space-y-2">
+                        {renderItem(
+                          item, 
+                          index, 
+                          () => handleDeleteItem(index), 
+                          (updated) => handleUpdateItem(index, updated), 
+                          false,
+                          undefined,
+                          () => handleMoveItemUp(index),
+                          () => handleMoveItemDown(index),
+                          index > 0,
+                          index < groupBlock.items.length - 1
+                        )}
+                        
+                        {/* Show substitutions for this item */}
+                        {substitutionsForThisItem.length > 0 && (
+                          <div className="ml-4 space-y-1">
+                            <div className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                              Round Substitutions:
+                            </div>
+                            {substitutionsForThisItem.map((substitute, subIndex) => (
+                              <div key={`${substitute.round}-${substitute.itemIndex}`} className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded border border-orange-200 dark:border-orange-800">
+                                <span className="text-xs text-orange-700 dark:text-orange-300">
+                                  Round {substitute.round}:
+                                </span>
+                                <div className="flex-1">
+                                  {renderItem(
+                                    substitute.substituteItem,
+                                    subIndex,
+                                    () => handleDeleteItemSubstitute(substitute.round, substitute.itemIndex),
+                                    (updated) => handleUpdateItemSubstitute(substitute.round, substitute.itemIndex, updated)
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Add substitution button for each round */}
+                        <div className="ml-4 flex flex-wrap gap-1">
+                          {Array.from({ length: groupBlock.sets }, (_, roundIndex) => {
+                            const round = roundIndex + 1;
+                            const hasSubstitution = substitutionsForThisItem.some(s => s.round === round);
+                            
+                            return (
+                              <Button
+                                key={round}
+                                variant={hasSubstitution ? "default" : "outline"}
+                                size="sm"
+                                className="h-6 text-xs"
+                                onClick={() => {
+                                  if (hasSubstitution) {
+                                    handleDeleteItemSubstitute(round, index);
+                                  } else {
+                                    setSelectedSubstituteRound(round);
+                                    setSelectedSubstituteItemIndex(index);
+                                    setIsAddItemSubstituteOpen(true);
+                                  }
+                                }}
+                              >
+                                {hasSubstitution ? `R${round} ✓` : `R${round}`}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                     {showIndicatorBelow && (
                       <div className="h-1 bg-primary rounded mt-2" />
@@ -657,6 +783,74 @@ export function GroupBlockView({
                 </DialogContent>
               </Dialog>
             </div>
+
+          {/* Item Substitute Dialog */}
+          <Dialog open={isAddItemSubstituteOpen} onOpenChange={setIsAddItemSubstituteOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  Add Item Substitute for Round {selectedSubstituteRound}, Item {selectedSubstituteItemIndex !== null ? selectedSubstituteItemIndex + 1 : ''}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pose-select-substitute">Select Pose</Label>
+                  <Select value={selectedPoseId} onValueChange={handlePoseChange}>
+                    <SelectTrigger id="pose-select-substitute">
+                      <SelectValue placeholder="Choose a pose" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {poses.map(pose => (
+                        <SelectItem key={pose.id} value={pose.id}>
+                          {pose.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {poseVariations.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="variation-select-substitute">Select Variation</Label>
+                    <Select value={selectedVariationId} onValueChange={setSelectedVariationId}>
+                      <SelectTrigger id="variation-select-substitute">
+                        <SelectValue placeholder="Choose a variation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {poseVariations.map(variation => (
+                          <SelectItem key={variation.id} value={variation.id}>
+                            {variation.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="duration-substitute">Duration (MM:SS or HH:MM:SS)</Label>
+                  <Input
+                    id="duration-substitute"
+                    placeholder="00:30"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  onClick={() => {
+                    if (selectedSubstituteRound !== null && selectedSubstituteItemIndex !== null) {
+                      handleAddItemSubstitute(selectedSubstituteRound, selectedSubstituteItemIndex);
+                    }
+                  }} 
+                  disabled={!selectedVariationId || selectedSubstituteRound === null || selectedSubstituteItemIndex === null}
+                >
+                  Add Substitute
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <div className="mt-3 space-y-2">
             {groupBlock.roundOverrides.length > 0 && (

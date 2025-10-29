@@ -33,35 +33,61 @@ export function formatDuration(totalSeconds: number): string {
 }
 
 /**
+ * Calculate duration for a list of items
+ */
+function calculateItemsDuration(items: Array<{ type: string; duration?: string } | GroupBlock>): number {
+  return items.reduce((total, item) => {
+    if (item.type === 'pose_instance') {
+      return total + parseDuration((item as any).duration);
+    } else if (item.type === 'group_block') {
+      return total + calculateGroupBlockDuration(item as GroupBlock);
+    }
+    return total;
+  }, 0);
+}
+
+/**
+ * Get the effective items for a specific round, taking into account item substitutions
+ */
+function getEffectiveItemsForRound(groupBlock: GroupBlock, round: number): Array<PoseInstance | GroupBlock> {
+  const itemSubstitutes = groupBlock.itemSubstitutes || [];
+  const roundSubstitutes = itemSubstitutes.filter(s => s.round === round);
+  
+  // Start with base items
+  const effectiveItems = [...groupBlock.items];
+  
+  // Apply substitutions for this round
+  roundSubstitutes.forEach(substitute => {
+    if (substitute.itemIndex >= 0 && substitute.itemIndex < effectiveItems.length) {
+      effectiveItems[substitute.itemIndex] = substitute.substituteItem;
+    }
+  });
+  
+  return effectiveItems;
+}
+
+/**
  * Calculate total duration for items in a group block
- * Takes into account sets and round overrides
+ * Takes into account sets, item substitutions, and round overrides
  */
 export function calculateGroupBlockDuration(groupBlock: GroupBlock): number {
-  // Calculate base items duration for one round
-  const baseItemsDuration = groupBlock.items.reduce((total, item) => {
-    if (item.type === 'pose_instance') {
-      return total + parseDuration(item.duration);
-    } else {
-      // Nested group block
-      return total + calculateGroupBlockDuration(item);
+  const roundOverrides = groupBlock.roundOverrides || [];
+  
+  let totalDuration = 0;
+  
+  // Calculate duration for each round
+  for (let round = 1; round <= groupBlock.sets; round++) {
+    // Get effective items for this round (with substitutions applied)
+    const effectiveItems = getEffectiveItemsForRound(groupBlock, round);
+    totalDuration += calculateItemsDuration(effectiveItems);
+    
+    // Add round override items if present (always appended)
+    const override = roundOverrides.find(o => o.round === round);
+    if (override) {
+      const overrideDuration = calculateItemsDuration(override.items);
+      totalDuration += overrideDuration * (override.sets || 1);
     }
-  }, 0);
-  
-  // Start with base duration multiplied by number of sets
-  let totalDuration = baseItemsDuration * groupBlock.sets;
-  
-  // Add round override durations (multiplied by sets)
-  groupBlock.roundOverrides.forEach(override => {
-    const overrideDuration = override.items.reduce((total, item) => {
-      if (item.type === 'pose_instance') {
-        return total + parseDuration(item.duration);
-      } else {
-        return total + calculateGroupBlockDuration(item);
-      }
-    }, 0);
-    // Multiply by the number of sets for this override
-    totalDuration += overrideDuration * (override.sets || 1);
-  });
+  }
   
   return totalDuration;
 }

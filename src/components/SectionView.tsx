@@ -100,6 +100,7 @@ export function SectionView({
       sets: setsNum,
       items: [],
       roundOverrides: [],
+      itemSubstitutes: [],
     };
 
     onAddGroupBlock(newGroupBlock);

@@ -25,12 +25,19 @@ export type RoundOverride = {
   items: Array<PoseInstance | GroupBlock>;  // additional items appended to the end of this round
 }
 
+export type ItemSubstitute = {
+  round: number;                 // 1-based round index
+  itemIndex: number;             // 0-based index of the item to substitute
+  substituteItem: PoseInstance | GroupBlock;  // item to use INSTEAD of the original item
+}
+
 export type GroupBlock = {
   type: "group_block";
   id: string;                   // unique ID
   sets: number; 
   items: Array<PoseInstance | GroupBlock>;
   roundOverrides: Array<RoundOverride>;
+  itemSubstitutes?: Array<ItemSubstitute>;  // individual items that are substituted in specific rounds
 }
 
 export type Section = {

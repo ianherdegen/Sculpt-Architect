@@ -220,6 +220,37 @@ export default function App() {
     }
   };
 
+  // Sequence handlers
+  const handleCreateSequence = async (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at'>) => {
+    try {
+      const newSequence = await sequenceService.create(sequence);
+      setSequences([...sequences, newSequence]);
+    } catch (error) {
+      console.error('Error creating sequence:', error);
+      alert('Failed to create sequence. Please try again.');
+    }
+  };
+
+  const handleUpdateSequence = async (id: string, updates: Partial<Sequence>) => {
+    try {
+      const updatedSequence = await sequenceService.update(id, updates);
+      setSequences(sequences.map(s => s.id === id ? updatedSequence : s));
+    } catch (error) {
+      console.error('Error updating sequence:', error);
+      alert('Failed to update sequence. Please try again.');
+    }
+  };
+
+  const handleDeleteSequence = async (id: string) => {
+    try {
+      await sequenceService.delete(id);
+      setSequences(sequences.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Error deleting sequence:', error);
+      alert('Failed to delete sequence. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className={`${isMobile ? 'px-4' : 'container mx-auto max-w-4xl px-6'}`}>
@@ -267,7 +298,9 @@ export default function App() {
                 sequences={sequences}
                 poses={poses}
                 variations={variations}
-                onUpdateSequences={setSequences}
+                onCreateSequence={handleCreateSequence}
+                onUpdateSequence={handleUpdateSequence}
+                onDeleteSequence={handleDeleteSequence}
               />
             </TabsContent>
 

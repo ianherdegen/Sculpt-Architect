@@ -27,14 +27,18 @@ interface SequenceBuilderProps {
   sequences: Sequence[];
   poses: Pose[];
   variations: PoseVariation[];
-  onUpdateSequences: (sequences: Sequence[]) => void;
+  onCreateSequence: (sequence: Omit<Sequence, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  onUpdateSequence: (id: string, updates: Partial<Sequence>) => Promise<void>;
+  onDeleteSequence: (id: string) => Promise<void>;
 }
 
 export function SequenceBuilder({
   sequences,
   poses,
   variations,
-  onUpdateSequences,
+  onCreateSequence,
+  onUpdateSequence,
+  onDeleteSequence,
 }: SequenceBuilderProps) {
   const isMobile = useIsMobile();
   const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(
@@ -53,23 +57,20 @@ export function SequenceBuilder({
 
   const selectedSequence = sequences.find(s => s.id === selectedSequenceId);
 
-  const handleCreateSequence = () => {
+  const handleCreateSequence = async () => {
     if (!newSequenceName.trim()) return;
 
-    const newSequence: Sequence = {
-      id: generateUUID(),
+    const newSequence = {
       name: newSequenceName.trim(),
       sections: [],
     };
 
-    const updatedSequences = [...sequences, newSequence];
-    onUpdateSequences(updatedSequences);
-    setSelectedSequenceId(newSequence.id);
+    await onCreateSequence(newSequence);
     setNewSequenceName('');
     setIsCreateSequenceOpen(false);
   };
 
-  const handleAddSection = () => {
+  const handleAddSection = async () => {
     if (!newSectionName.trim() || !selectedSequence) return;
 
     const newSection: Section = {
@@ -84,34 +85,21 @@ export function SequenceBuilder({
       sections: [...selectedSequence.sections, newSection],
     };
 
-    const updatedSequences = sequences.map(s => 
-      s.id === selectedSequence.id ? updatedSequence : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { sections: updatedSequence.sections });
     setNewSectionName('');
     setIsAddSectionOpen(false);
   };
 
-  const handleDeleteSection = (sectionIndex: number) => {
+  const handleDeleteSection = async (sectionIndex: number) => {
     if (!selectedSequence) return;
 
     const updatedSections = [...selectedSequence.sections];
     updatedSections.splice(sectionIndex, 1);
 
-    const updatedSequence = {
-      ...selectedSequence,
-      sections: updatedSections,
-    };
-
-    const updatedSequences = sequences.map(s => 
-      s.id === selectedSequence.id ? updatedSequence : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
   };
 
-  const handleAddPoseToSection = (sectionIndex: number, poseInstance: PoseInstance) => {
+  const handleAddPoseToSection = async (sectionIndex: number, poseInstance: PoseInstance) => {
     if (!selectedSequence) return;
 
     const updatedSections = [...selectedSequence.sections];
@@ -120,19 +108,10 @@ export function SequenceBuilder({
       items: [...updatedSections[sectionIndex].items, poseInstance],
     };
 
-    const updatedSequence = {
-      ...selectedSequence,
-      sections: updatedSections,
-    };
-
-    const updatedSequences = sequences.map(s => 
-      s.id === selectedSequence.id ? updatedSequence : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
   };
 
-  const handleAddGroupToSection = (sectionIndex: number, groupBlock: GroupBlock) => {
+  const handleAddGroupToSection = async (sectionIndex: number, groupBlock: GroupBlock) => {
     if (!selectedSequence) return;
 
     const updatedSections = [...selectedSequence.sections];
@@ -141,19 +120,10 @@ export function SequenceBuilder({
       items: [...updatedSections[sectionIndex].items, groupBlock],
     };
 
-    const updatedSequence = {
-      ...selectedSequence,
-      sections: updatedSections,
-    };
-
-    const updatedSequences = sequences.map(s => 
-      s.id === selectedSequence.id ? updatedSequence : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
   };
 
-  const handleDeleteItemFromSection = (sectionIndex: number, itemIndex: number) => {
+  const handleDeleteItemFromSection = async (sectionIndex: number, itemIndex: number) => {
     if (!selectedSequence) return;
 
     const updatedSections = [...selectedSequence.sections];
@@ -166,45 +136,27 @@ export function SequenceBuilder({
       items: updatedItems,
     };
 
-    const updatedSequence = {
-      ...selectedSequence,
-      sections: updatedSections,
-    };
-
-    const updatedSequences = sequences.map(s => 
-      s.id === selectedSequence.id ? updatedSequence : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
   };
 
-  const handleUpdateSection = (sectionIndex: number, updatedSection: Section) => {
+  const handleUpdateSection = async (sectionIndex: number, updatedSection: Section) => {
     if (!selectedSequence) return;
 
     const updatedSections = [...selectedSequence.sections];
     updatedSections[sectionIndex] = updatedSection;
 
-    const updatedSequence = {
-      ...selectedSequence,
-      sections: updatedSections,
-    };
-
-    const updatedSequences = sequences.map(s => 
-      s.id === selectedSequence.id ? updatedSequence : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
   };
 
-  const handleDeleteSequence = () => {
+  const handleDeleteSequence = async () => {
     if (!selectedSequence) return;
 
-    const updatedSequences = sequences.filter(s => s.id !== selectedSequence.id);
-    onUpdateSequences(updatedSequences);
+    await onDeleteSequence(selectedSequence.id);
     
     // Select another sequence if available
-    if (updatedSequences.length > 0) {
-      setSelectedSequenceId(updatedSequences[0].id);
+    const remainingSequences = sequences.filter(s => s.id !== selectedSequence.id);
+    if (remainingSequences.length > 0) {
+      setSelectedSequenceId(remainingSequences[0].id);
     } else {
       setSelectedSequenceId(null);
     }
@@ -212,14 +164,11 @@ export function SequenceBuilder({
     setIsDeleteSequenceOpen(false);
   };
 
-  const handleEditSequenceName = () => {
+  const handleEditSequenceName = async () => {
     if (!selectedSequence || !editedSequenceName.trim()) return;
 
-    const updatedSequences = sequences.map(s =>
-      s.id === selectedSequence.id ? { ...s, name: editedSequenceName.trim() } : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { name: editedSequenceName.trim() });
+    setEditedSequenceName('');
     setIsEditSequenceOpen(false);
   };
 
@@ -230,27 +179,21 @@ export function SequenceBuilder({
     }));
   };
 
-  const handleMoveSectionUp = (index: number) => {
+  const handleMoveSectionUp = async (index: number) => {
     if (index > 0 && selectedSequence) {
       const updatedSections = [...selectedSequence.sections];
       [updatedSections[index - 1], updatedSections[index]] = [updatedSections[index], updatedSections[index - 1]];
       
-      const updatedSequences = sequences.map(seq => 
-        seq.id === selectedSequence.id ? { ...seq, sections: updatedSections } : seq
-      );
-      onUpdateSequences(updatedSequences);
+      await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
     }
   };
 
-  const handleMoveSectionDown = (index: number) => {
+  const handleMoveSectionDown = async (index: number) => {
     if (index < selectedSequence!.sections.length - 1 && selectedSequence) {
       const updatedSections = [...selectedSequence.sections];
       [updatedSections[index], updatedSections[index + 1]] = [updatedSections[index + 1], updatedSections[index]];
       
-      const updatedSequences = sequences.map(seq => 
-        seq.id === selectedSequence.id ? { ...seq, sections: updatedSections } : seq
-      );
-      onUpdateSequences(updatedSequences);
+      await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
     }
   };
 
@@ -270,7 +213,7 @@ export function SequenceBuilder({
     setDragOverSectionIndex(null);
   };
 
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -284,16 +227,7 @@ export function SequenceBuilder({
     const [removed] = updatedSections.splice(draggedSectionIndex, 1);
     updatedSections.splice(targetIndex, 0, removed);
 
-    const updatedSequence = {
-      ...selectedSequence,
-      sections: updatedSections,
-    };
-
-    const updatedSequences = sequences.map(s => 
-      s.id === selectedSequence.id ? updatedSequence : s
-    );
-
-    onUpdateSequences(updatedSequences);
+    await onUpdateSequence(selectedSequence.id, { sections: updatedSections });
     setDraggedSectionIndex(null);
     setDragOverSectionIndex(null);
   };

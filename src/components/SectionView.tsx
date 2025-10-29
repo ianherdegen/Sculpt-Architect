@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { PoseInstanceView } from './PoseInstanceView';
 import { GroupBlockView } from './GroupBlockView';
-import { Plus, Trash2, ChevronDown, ChevronRight, Clock, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, Clock, ChevronUp, Edit } from 'lucide-react';
 import { calculateSectionDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 
@@ -50,6 +50,8 @@ export function SectionView({
   const [isOpen, setIsOpen] = useState(true);
   const [isAddPoseOpen, setIsAddPoseOpen] = useState(false);
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
+  const [isEditSectionOpen, setIsEditSectionOpen] = useState(false);
+  const [editedSectionName, setEditedSectionName] = useState('');
   
   const [selectedPoseId, setSelectedPoseId] = useState<string>('');
   const [selectedVariationId, setSelectedVariationId] = useState<string>('');
@@ -141,6 +143,13 @@ export function SectionView({
       [updatedItems[index], updatedItems[index + 1]] = [updatedItems[index + 1], updatedItems[index]];
       onUpdateSection({ ...section, items: updatedItems });
     }
+  };
+
+  const handleEditSectionName = () => {
+    if (!editedSectionName.trim()) return;
+    onUpdateSection({ ...section, name: editedSectionName.trim() });
+    setIsEditSectionOpen(false);
+    setEditedSectionName('');
   };
 
   const getItemKey = (item: PoseInstance | GroupBlock, index: number): string => {
@@ -270,9 +279,44 @@ export function SectionView({
               <Clock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
               {formatDuration(calculateSectionDuration(section))}
             </span>
-            <Button variant="ghost" size="sm" onClick={onDelete}>
-              <Trash2 className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Dialog open={isEditSectionOpen} onOpenChange={setIsEditSectionOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setEditedSectionName(section.name)}
+                    className={isMobile ? 'h-8 w-8 p-0' : ''}
+                  >
+                    <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+                    {!isMobile && <span className="ml-1">Edit</span>}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Section Name</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-section-name">Section Name</Label>
+                      <Input
+                        id="edit-section-name"
+                        placeholder="Enter section name"
+                        value={editedSectionName}
+                        onChange={(e) => setEditedSectionName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleEditSectionName()}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleEditSectionName}>Save Changes</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button variant="ghost" size="sm" onClick={onDelete}>
+                <Trash2 className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+              </Button>
+            </div>
           </div>
         </div>
         <CollapsibleContent className="mt-4 space-y-3">

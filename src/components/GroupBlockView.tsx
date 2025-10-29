@@ -12,6 +12,7 @@ import { PoseInstanceView } from './PoseInstanceView';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { calculateGroupBlockDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
+import { generateUUID } from '../lib/uuid';
 
 interface GroupBlockViewProps {
   groupBlock: GroupBlock;
@@ -78,7 +79,7 @@ export function GroupBlockView({
 
     const newPoseInstance: PoseInstance = {
       type: 'pose_instance',
-      id: `pose-${Date.now()}`,
+      id: generateUUID(),
       poseVariationId: selectedVariationId,
       duration: duration,
     };
@@ -153,7 +154,7 @@ export function GroupBlockView({
 
     const newPoseInstance: PoseInstance = {
       type: 'pose_instance',
-      id: `pose-${Date.now()}`,
+      id: generateUUID(),
       poseVariationId: selectedVariationId,
       duration: duration,
     };

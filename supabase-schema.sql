@@ -154,10 +154,11 @@ CREATE POLICY "Users can insert their own sequences" ON sequences FOR INSERT WIT
 CREATE POLICY "Users can update their own sequences" ON sequences FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own sequences" ON sequences FOR DELETE USING (auth.uid() = user_id);
 
--- User profiles: Users can view their own, admins can view all
+-- User profiles: More permissive policies for profile access
 CREATE POLICY "Users can view their own profile" ON user_profiles FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own profile" ON user_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own profile" ON user_profiles FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Allow profile access for authenticated users" ON user_profiles FOR SELECT USING (auth.uid() IS NOT NULL);
 CREATE POLICY "Admins can view all profiles" ON user_profiles FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM user_profiles 

@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Badge } from './ui/badge';
 import { Plus, Trash2, Edit, Search } from 'lucide-react';
 import { useIsMobile } from './ui/use-mobile';
+import { generateUUID } from '../lib/uuid';
 
 interface PoseLibraryProps {
   poses: Pose[];
@@ -48,8 +49,8 @@ export function PoseLibrary({
   const handleAddPose = () => {
     if (!newPoseName.trim()) return;
 
-    const poseId = `pose-${Date.now()}`;
-    const variationId = `var-${Date.now()}`;
+    const poseId = generateUUID();
+    const variationId = generateUUID();
 
     const newPose: Pose = {
       id: poseId,
@@ -72,7 +73,7 @@ export function PoseLibrary({
     if (!newVariationName.trim() || !selectedPoseForVariation) return;
 
     const newVariation: PoseVariation = {
-      id: `var-${Date.now()}`,
+      id: generateUUID(),
       poseId: selectedPoseForVariation,
       name: newVariationName.trim(),
       isDefault: false,

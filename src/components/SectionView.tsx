@@ -12,6 +12,7 @@ import { GroupBlockView } from './GroupBlockView';
 import { Plus, Trash2, ChevronDown, ChevronRight, Clock, ChevronUp, Edit } from 'lucide-react';
 import { calculateSectionDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
+import { generateUUID } from '../lib/uuid';
 
 interface SectionViewProps {
   section: Section;
@@ -65,7 +66,7 @@ export function SectionView({
 
     const newPoseInstance: PoseInstance = {
       type: 'pose_instance',
-      id: `pose-${Date.now()}`,
+      id: generateUUID(),
       poseVariationId: selectedVariationId,
       duration: duration,
     };
@@ -83,7 +84,7 @@ export function SectionView({
 
     const newGroupBlock: GroupBlock = {
       type: 'group_block',
-      id: `group-${Date.now()}`,
+      id: generateUUID(),
       sets: setsNum,
       items: [],
       roundOverrides: [],

@@ -10,6 +10,7 @@ import { SectionView } from './SectionView';
 import { Plus, FolderOpen, Trash2, Edit, GripVertical, Clock, ChevronUp, ChevronDown } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
+import { generateUUID } from '../lib/uuid';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,7 +57,7 @@ export function SequenceBuilder({
     if (!newSequenceName.trim()) return;
 
     const newSequence: Sequence = {
-      id: `seq-${Date.now()}`,
+      id: generateUUID(),
       name: newSequenceName.trim(),
       sections: [],
     };
@@ -73,7 +74,7 @@ export function SequenceBuilder({
 
     const newSection: Section = {
       type: 'section',
-      id: `section-${Date.now()}`,
+      id: generateUUID(),
       name: newSectionName.trim(),
       items: [],
     };

@@ -275,9 +275,10 @@ export function SequenceBuilder({
           <Select 
             value={selectedSequenceId || undefined} 
             onValueChange={setSelectedSequenceId}
+            disabled={sequences.length === 0}
           >
             <SelectTrigger className={isMobile ? 'w-full' : ''}>
-              <SelectValue placeholder="Select a sequence" />
+              <SelectValue placeholder={sequences.length === 0 ? "Empty" : "Select a sequence"} />
             </SelectTrigger>
             <SelectContent>
               {sequences.map(seq => (

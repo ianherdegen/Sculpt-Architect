@@ -114,6 +114,80 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to check if a variation is used in any sequence (across all users)
+-- Uses SECURITY DEFINER to bypass RLS and check all sequences
+CREATE OR REPLACE FUNCTION check_variation_usage(p_variation_id UUID)
+RETURNS TABLE(sequence_names TEXT[]) AS $$
+DECLARE
+  seq_record RECORD;
+  section_record JSONB;
+  item_record JSONB;
+  override_record JSONB;
+  found_names TEXT[] := '{}';
+  found_in_sequence BOOLEAN;
+  
+  -- Recursive helper to check items
+  FUNCTION check_item(item JSONB) RETURNS BOOLEAN AS $$
+  BEGIN
+    IF (item->>'type') = 'pose_instance' THEN
+      RETURN (item->>'poseVariationId') = p_variation_id::TEXT;
+    ELSIF (item->>'type') = 'group_block' THEN
+      -- Check items in group block
+      IF item ? 'items' AND item->'items' IS NOT NULL THEN
+        FOR item_record IN SELECT * FROM jsonb_array_elements(item->'items')
+        LOOP
+          IF check_item(item_record) THEN
+            RETURN TRUE;
+          END IF;
+        END LOOP;
+      END IF;
+      -- Check round overrides
+      IF item ? 'roundOverrides' AND item->'roundOverrides' IS NOT NULL THEN
+        FOR override_record IN SELECT * FROM jsonb_array_elements(item->'roundOverrides')
+        LOOP
+          IF override_record ? 'items' AND override_record->'items' IS NOT NULL THEN
+            FOR item_record IN SELECT * FROM jsonb_array_elements(override_record->'items')
+            LOOP
+              IF check_item(item_record) THEN
+                RETURN TRUE;
+              END IF;
+            END LOOP;
+          END IF;
+        END LOOP;
+      END IF;
+    END IF;
+    RETURN FALSE;
+  END;
+  $$ LANGUAGE plpgsql IMMUTABLE;
+  
+BEGIN
+  FOR seq_record IN SELECT id, name, sections FROM sequences
+  LOOP
+    found_in_sequence := FALSE;
+    IF seq_record.sections IS NOT NULL THEN
+      FOR section_record IN SELECT * FROM jsonb_array_elements(seq_record.sections)
+      LOOP
+        IF section_record ? 'items' AND section_record->'items' IS NOT NULL THEN
+          FOR item_record IN SELECT * FROM jsonb_array_elements(section_record->'items')
+          LOOP
+            IF check_item(item_record) THEN
+              found_names := array_append(found_names, seq_record.name);
+              found_in_sequence := TRUE;
+              EXIT;
+            END IF;
+          END LOOP;
+          IF found_in_sequence THEN
+            EXIT;
+          END IF;
+        END IF;
+      END LOOP;
+    END IF;
+  END LOOP;
+  
+  RETURN QUERY SELECT fnound_names;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ============================================================================
 -- STEP 5: CREATE TRIGGERS
 -- ============================================================================

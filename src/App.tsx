@@ -118,13 +118,29 @@ export default function App() {
   };
 
   const handleDeletePose = async (poseId: string) => {
-    // Check if pose is used in any sequence
-    const sequencesUsingPose = findSequencesUsingPose(poseId);
-    if (sequencesUsingPose.length > 0) {
-      alert(`Cannot delete pose. It is currently used in the following sequence(s): ${sequencesUsingPose.join(', ')}`);
+    // Check if pose is used in any sequence (across all users)
+    const poseVariations = variations.filter(v => v.poseId === poseId);
+    const variationIds = poseVariations.map(v => v.id);
+    
+    try {
+      const { used } = await sequenceService.isPoseUsedInAnySequence(poseId, variationIds);
+      if (used) {
+        alert(`Cannot delete pose. It is currently being used in existing sequences.`);
+        return;
+      }
+    } catch (error: any) {
+      console.error('Error checking pose usage:', error);
+      // If check fails, don't allow deletion - safety first
+      const errorMsg = error?.message || 'Unknown error';
+      if (errorMsg.includes('function') || errorMsg.includes('check_variation_usage') || errorMsg.includes('permission denied')) {
+        alert('Database function not found. Please run the SQL function in Supabase first.\n\nSee: supabase-variation-check-function.sql');
+      } else {
+        alert(`Cannot verify if pose is safe to delete: ${errorMsg}\n\nDeletion blocked for safety.`);
+      }
       return;
     }
 
+    // Only proceed with deletion if check passed
     try {
       await poseService.delete(poseId);
       setPoses(poses.filter(p => p.id !== poseId));
@@ -149,10 +165,22 @@ export default function App() {
     const variation = variations.find(v => v.id === variationId);
     if (!variation) return;
 
-    // Check if variation is used in any sequence
-    const sequencesUsingVariation = findSequencesUsingVariation(variationId);
-    if (sequencesUsingVariation.length > 0) {
-      alert(`Cannot delete variation. It is currently used in the following sequence(s): ${sequencesUsingVariation.join(', ')}`);
+    // Check if variation is used in any sequence (across all users)
+    try {
+      const { used } = await sequenceService.isVariationUsedInAnySequence(variationId);
+      if (used) {
+        alert(`Cannot delete variation. It is currently being used in existing sequences.`);
+        return;
+      }
+    } catch (error: any) {
+      console.error('Error checking variation usage:', error);
+      // If check fails, don't allow deletion - safety first
+      const errorMsg = error?.message || 'Unknown error';
+      if (errorMsg.includes('function') || errorMsg.includes('check_variation_usage') || errorMsg.includes('permission denied')) {
+        alert('Database function not found. Please run the SQL function in Supabase first.\n\nSee: supabase-variation-check-function.sql');
+      } else {
+        alert(`Cannot verify if variation is safe to delete: ${errorMsg}\n\nDeletion blocked for safety.`);
+      }
       return;
     }
 

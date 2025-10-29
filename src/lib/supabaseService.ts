@@ -183,5 +183,42 @@ export const sequenceService = {
       .eq('user_id', userId)
     
     if (error) throw error
+  },
+
+  // Check if a variation is used in any sequence (across all users)
+  // Uses database function with SECURITY DEFINER to bypass RLS
+  async isVariationUsedInAnySequence(variationId: string): Promise<{ used: boolean; sequenceNames: string[] }> {
+    try {
+      const { data, error } = await supabase.rpc('check_variation_usage', {
+        p_variation_id: variationId
+      })
+      
+      if (error) {
+        console.error('RPC error checking variation usage:', error)
+        // Re-throw with more context
+        throw new Error(`Database check failed: ${error.message}. Make sure the check_variation_usage function exists in Supabase.`)
+      }
+      
+      // The function returns TEXT[] directly (not wrapped in a table)
+      const sequenceNames = Array.isArray(data) ? data : []
+      console.log(`Variation ${variationId} check result:`, { used: sequenceNames.length > 0, sequenceNames })
+      return { used: sequenceNames.length > 0, sequenceNames }
+    } catch (err: any) {
+      console.error('Error in isVariationUsedInAnySequence:', err)
+      throw err
+    }
+  },
+
+  // Check if a pose (any of its variations) is used in any sequence (across all users)
+  async isPoseUsedInAnySequence(poseId: string, variationIds: string[]): Promise<{ used: boolean; sequenceNames: string[] }> {
+    const sequenceNamesSet = new Set<string>()
+    
+    // Check each variation
+    for (const variationId of variationIds) {
+      const result = await this.isVariationUsedInAnySequence(variationId)
+      result.sequenceNames.forEach(name => sequenceNamesSet.add(name))
+    }
+    
+    return { used: sequenceNamesSet.size > 0, sequenceNames: Array.from(sequenceNamesSet) }
   }
 }

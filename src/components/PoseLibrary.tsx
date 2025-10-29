@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pose, PoseVariation } from '../types';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Badge } from './ui/badge';
-import { Plus, Trash2, Edit, Search } from 'lucide-react';
+import { Plus, Trash2, Edit, Search, Lock } from 'lucide-react';
 import { useIsMobile } from './ui/use-mobile';
 import { generateUUID } from '../lib/uuid';
 
@@ -23,6 +23,9 @@ interface PoseLibraryProps {
   onUpdateVariationName: (variationId: string, newName: string) => void;
 }
 
+const POSE_LIBRARY_PASSWORD = 'sculptyobooty';
+const POSE_LIBRARY_AUTH_KEY = 'poseLibraryAuthenticated';
+
 export function PoseLibrary({
   poses,
   variations,
@@ -35,6 +38,9 @@ export function PoseLibrary({
   onUpdateVariationName,
 }: PoseLibraryProps) {
   const isMobile = useIsMobile();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [isAddPoseOpen, setIsAddPoseOpen] = useState(false);
   const [isAddVariationOpen, setIsAddVariationOpen] = useState(false);
   const [newPoseName, setNewPoseName] = useState('');
@@ -45,6 +51,26 @@ export function PoseLibrary({
   const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
   const [editedVariationName, setEditedVariationName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Check if already authenticated on mount
+  useEffect(() => {
+    const authenticated = sessionStorage.getItem(POSE_LIBRARY_AUTH_KEY) === 'true';
+    setIsAuthenticated(authenticated);
+  }, []);
+
+  const handlePasswordSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    if (password === POSE_LIBRARY_PASSWORD) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem(POSE_LIBRARY_AUTH_KEY, 'true');
+      setPassword('');
+      setPasswordError('');
+    } else {
+      setPasswordError('Incorrect password. Please try again.');
+      setPassword('');
+    }
+  };
 
   const handleAddPose = () => {
     if (!newPoseName.trim()) return;
@@ -114,6 +140,49 @@ export function PoseLibrary({
     const poseVariations = getVariationsForPose(pose.id);
     return poseVariations.some(v => v.name.toLowerCase().includes(query));
   });
+
+  // Show password form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className={`${isMobile ? 'p-4' : 'p-8'} flex items-center justify-center min-h-[400px]`}>
+        <Card className={`${isMobile ? 'w-full' : 'w-full max-w-md'} p-6`}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-center mb-4">
+              <Lock className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h2 className="text-xl font-semibold text-center">Pose Library Protected</h2>
+            <p className="text-sm text-muted-foreground text-center">
+              Please enter the password to access the Pose Library.
+            </p>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="pose-library-password">Password</Label>
+                <Input
+                  id="pose-library-password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError('');
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                  className={passwordError ? 'border-destructive' : ''}
+                  autoFocus
+                />
+                {passwordError && (
+                  <p className="text-sm text-destructive">{passwordError}</p>
+                )}
+              </div>
+              <Button type="submit" className="w-full">
+                Unlock Pose Library
+              </Button>
+            </form>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className={`${isMobile ? 'p-0' : 'p-4'} space-y-4`}>

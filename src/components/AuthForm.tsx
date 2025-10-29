@@ -18,6 +18,7 @@ export function AuthForm() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('Signup form submitted with:', { email, password: '***' })
     setLoading(true)
     setError(null)
     setMessage(null)
@@ -25,8 +26,10 @@ export function AuthForm() {
     const { error } = await signUp(email, password)
     
     if (error) {
+      console.error('Signup error:', error)
       setError(error.message)
     } else {
+      console.log('Signup successful')
       setMessage('Check your email for the confirmation link!')
     }
     

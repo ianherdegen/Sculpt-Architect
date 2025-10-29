@@ -39,10 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    console.log('Attempting signup with:', { email, password: '***' })
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     })
+    console.log('Signup result:', { data, error })
     return { error }
   }
 

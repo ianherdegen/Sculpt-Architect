@@ -47,16 +47,31 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ### Tables Created:
 
 - **poses**: Stores yoga pose names
+  - `id` (UUID, Primary Key)
+  - `name` (TEXT, Unique)
+  - `created_at`, `updated_at` (Timestamps)
+
 - **pose_variations**: Stores variations of poses (linked to poses)
+  - `id` (UUID, Primary Key)
+  - `pose_id` (UUID, Foreign Key to poses)
+  - `name` (TEXT)
+  - `is_default` (BOOLEAN) - Marks the default variation for each pose
+  - `created_at`, `updated_at` (Timestamps)
+
 - **sequences**: Stores yoga sequences with sections as JSON
+  - `id` (UUID, Primary Key)
+  - `name` (TEXT)
+  - `sections` (JSONB) - Array of sections with poses and group blocks
+  - `created_at`, `updated_at` (Timestamps)
 
 ### Features:
 
 - Row Level Security enabled
 - Automatic timestamps (created_at, updated_at)
-- Foreign key relationships
-- Sample data included
-- Optimized with indexes
+- Foreign key relationships with cascade delete
+- Sample data included (10 poses with default variations)
+- Optimized with indexes for performance
+- Unique constraints to prevent duplicate pose names and variation names per pose
 
 ## Next Steps
 

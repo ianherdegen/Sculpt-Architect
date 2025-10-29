@@ -12,7 +12,7 @@ import { useIsMobile } from './components/ui/use-mobile';
 import { Button } from './components/ui/button';
 
 export default function App() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut, isAdmin } = useAuth();
   const [poses, setPoses] = useState<Pose[]>([]);
   const [variations, setVariations] = useState<PoseVariation[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
@@ -311,12 +311,14 @@ export default function App() {
               <p className="text-muted-foreground">Loading...</p>
             </div>
           ) : (
-            <Tabs defaultValue="library" className="w-full">
-            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-10' : 'grid-cols-3'}`}>
-              <TabsTrigger value="library" className={isMobile ? 'text-xs px-2' : ''}>
-                <Dumbbell className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
-                {isMobile ? 'Poses' : 'Pose Library'}
-              </TabsTrigger>
+            <Tabs defaultValue={isAdmin ? "library" : "builder"} className="w-full">
+            <TabsList className={`grid w-full ${isMobile ? `grid-cols-${isAdmin ? '3' : '2'} h-10` : `grid-cols-${isAdmin ? '3' : '2'}`}`}>
+              {isAdmin && (
+                <TabsTrigger value="library" className={isMobile ? 'text-xs px-2' : ''}>
+                  <Dumbbell className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
+                  {isMobile ? 'Poses' : 'Pose Library'}
+                </TabsTrigger>
+              )}
               <TabsTrigger value="builder" className={isMobile ? 'text-xs px-2' : ''}>
                 <ListOrdered className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'}`} />
                 {isMobile ? 'Builder' : 'Sequence Builder'}
@@ -327,19 +329,21 @@ export default function App() {
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="library" className="mt-0">
-              <PoseLibrary
-                poses={poses}
-                variations={variations}
-                onAddPose={handleAddPose}
-                onDeletePose={handleDeletePose}
-                onAddVariation={handleAddVariation}
-                onDeleteVariation={handleDeleteVariation}
-                onSetDefaultVariation={handleSetDefaultVariation}
-                onUpdatePoseName={handleUpdatePoseName}
-                onUpdateVariationName={handleUpdateVariationName}
-              />
-            </TabsContent>
+            {isAdmin && (
+              <TabsContent value="library" className="mt-0">
+                <PoseLibrary
+                  poses={poses}
+                  variations={variations}
+                  onAddPose={handleAddPose}
+                  onDeletePose={handleDeletePose}
+                  onAddVariation={handleAddVariation}
+                  onDeleteVariation={handleDeleteVariation}
+                  onSetDefaultVariation={handleSetDefaultVariation}
+                  onUpdatePoseName={handleUpdatePoseName}
+                  onUpdateVariationName={handleUpdateVariationName}
+                />
+              </TabsContent>
+            )}
             
             <TabsContent value="builder" className="mt-0">
               <SequenceBuilder

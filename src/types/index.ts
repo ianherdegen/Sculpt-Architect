@@ -17,6 +17,7 @@ export type PoseInstance = {
   id: string;                   // unique ID
   poseVariationId: string;     // reference to PoseVariation.id
   duration: string;             // time duration in format "HH:MM:SS" or "MM:SS"
+  locked?: boolean;             // if true, this item is excluded from autofit calculations
 }
 
 export type RoundOverride = {

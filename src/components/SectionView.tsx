@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { PoseInstanceView } from './PoseInstanceView';
 import { GroupBlockView } from './GroupBlockView';
-import { Plus, Trash2, ChevronDown, ChevronRight, Clock, ChevronUp, Edit } from 'lucide-react';
-import { calculateSectionDuration, formatDuration } from '../lib/timeUtils';
+import { Plus, Trash2, ChevronDown, ChevronRight, Clock, ChevronUp, Edit, RefreshCw } from 'lucide-react';
+import { calculateSectionDuration, formatDuration, autofitSectionTime, parseDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { generateUUID } from '../lib/uuid';
 import {
@@ -65,6 +65,8 @@ export function SectionView({
   const [isEditSectionOpen, setIsEditSectionOpen] = useState(false);
   const [editedSectionName, setEditedSectionName] = useState('');
   const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
+  const [isAutofitOpen, setIsAutofitOpen] = useState(false);
+  const [targetDuration, setTargetDuration] = useState('');
   
   const [selectedPoseId, setSelectedPoseId] = useState<string>('');
   const [selectedVariationId, setSelectedVariationId] = useState<string>('');
@@ -164,6 +166,33 @@ export function SectionView({
     onUpdateSection({ ...section, name: editedSectionName.trim() });
     setIsEditSectionOpen(false);
     setEditedSectionName('');
+  };
+
+  const handleAutofitTime = () => {
+    if (!targetDuration.trim()) return;
+    
+    const targetSeconds = parseDuration(targetDuration.trim());
+    if (targetSeconds <= 0) {
+      alert('Please enter a valid duration');
+      return;
+    }
+    
+    const { section: updatedSection, warning } = autofitSectionTime(section, targetSeconds);
+    onUpdateSection(updatedSection);
+    
+    if (warning) {
+      alert(warning);
+    }
+    
+    setIsAutofitOpen(false);
+    setTargetDuration('');
+  };
+
+  const handleOpenAutofit = () => {
+    // Pre-fill with current section duration
+    const currentDuration = calculateSectionDuration(section);
+    setTargetDuration(formatDuration(currentDuration));
+    setIsAutofitOpen(true);
   };
 
   const getItemKey = (item: PoseInstance | GroupBlock, index: number): string => {
@@ -294,6 +323,48 @@ export function SectionView({
               {formatDuration(calculateSectionDuration(section))}
             </span>
             <div className="flex items-center gap-1">
+              <Dialog open={isAutofitOpen} onOpenChange={setIsAutofitOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={handleOpenAutofit}
+                    className={isMobile ? 'h-8 w-8 p-0' : ''}
+                    title="Autofit time evenly across unlocked exercises"
+                  >
+                    <RefreshCw className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+                    {!isMobile && <span className="ml-1">Autofit Time</span>}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Autofit Section Time</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="target-duration">Target Total Duration (MM:SS or HH:MM:SS)</Label>
+                      <Input
+                        id="target-duration"
+                        placeholder="05:00"
+                        value={targetDuration}
+                        onChange={(e) => setTargetDuration(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAutofitTime()}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Current section duration: {formatDuration(calculateSectionDuration(section))}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Time will be distributed evenly among unlocked exercises. Locked exercises will keep their current duration.
+                      </p>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleAutofitTime} disabled={!targetDuration.trim()}>
+                      Apply Autofit
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
               <Dialog open={isEditSectionOpen} onOpenChange={setIsEditSectionOpen}>
                 <DialogTrigger asChild>
                   <Button 

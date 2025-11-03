@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PoseInstance, PoseVariation, Pose } from '../types';
 import { Button } from './ui/button';
-import { GripVertical, Trash2, Clock, Edit, ChevronUp, ChevronDown } from 'lucide-react';
+import { GripVertical, Trash2, Clock, Edit, ChevronUp, ChevronDown, Lock, Unlock } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
@@ -63,6 +63,15 @@ export function PoseInstanceView({
     setEditedVariationId(poseInstance.poseVariationId);
     setEditedDuration(poseInstance.duration);
     setIsEditOpen(true);
+  };
+
+  const handleToggleLock = () => {
+    if (!onUpdate) return;
+    const updatedInstance: PoseInstance = {
+      ...poseInstance,
+      locked: !poseInstance.locked,
+    };
+    onUpdate(updatedInstance);
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -136,16 +145,33 @@ export function PoseInstanceView({
           </div>
         )}
         {onUpdate && (
-          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleOpenEdit}
-              >
-                <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
-              </Button>
-            </DialogTrigger>
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleLock}
+              title={poseInstance.locked ? "Unlock (include in autofit)" : "Lock (exclude from autofit)"}
+            >
+              {poseInstance.locked ? (
+                <Lock 
+                  className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`}
+                  stroke="rgb(220 38 38)"
+                  style={{ stroke: 'rgb(220 38 38)' }}
+                />
+              ) : (
+                <Unlock className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+              )}
+            </Button>
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenEdit}
+                >
+                  <Edit className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
+                </Button>
+              </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Pose Instance</DialogTitle>
@@ -198,6 +224,7 @@ export function PoseInstanceView({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      </>
       )}
       
       <Button

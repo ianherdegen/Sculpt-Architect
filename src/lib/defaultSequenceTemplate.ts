@@ -274,13 +274,13 @@ export const DEFAULT_SEQUENCE_TEMPLATE: Section[] = [
       {
         "id": "78b9a729-63f5-4a94-9c46-57428a1f5fec",
         "type": "pose_instance",
-        "duration": "00:20",
+        "duration": "00:15",
         "poseVariationId": "03dbeba7-2d43-4e19-b7a4-2b35cda9d33e"
       },
       {
         "id": "63cc0bc1-3b26-44b3-8e11-7742555dc0e3",
         "type": "pose_instance",
-        "duration": "00:10",
+        "duration": "00:05",
         "poseVariationId": "daa8b2c8-5f00-414d-ae81-38f0253c93a3"
       },
       {
@@ -291,56 +291,80 @@ export const DEFAULT_SEQUENCE_TEMPLATE: Section[] = [
           {
             "id": "d7f1d2ac-ebaf-4f8c-ab4a-21010e26ad4a",
             "type": "pose_instance",
-            "duration": "00:10",
+            "duration": "00:07",
             "poseVariationId": "96503c27-6589-49bf-af33-da07acfb16ae"
           },
           {
             "id": "63fd6e0c-dbdb-4818-ada6-60470ab51655",
             "type": "pose_instance",
-            "duration": "00:10",
+            "duration": "00:08",
             "poseVariationId": "8a06392c-edcc-4756-9300-4647733daa35"
           },
           {
             "id": "d59b41d3-e289-4a98-8a82-c126008d3079",
             "type": "pose_instance",
-            "duration": "00:05",
+            "duration": "00:04",
             "poseVariationId": "7d4c93ee-c2e5-44ef-af81-2d382c378d7c"
           },
           {
             "id": "a5b30e81-0135-4d12-ad6f-04f0cfd21f3c",
             "type": "pose_instance",
-            "duration": "00:05",
+            "duration": "00:04",
             "poseVariationId": "c39a93fe-f812-4bc9-abda-c9bba674b3db"
           },
           {
             "id": "f447539b-f08d-47d9-814a-84092a03dffd",
             "type": "pose_instance",
-            "duration": "00:05",
+            "duration": "00:04",
             "poseVariationId": "7d4c93ee-c2e5-44ef-af81-2d382c378d7c"
           },
           {
             "id": "71f17324-bd57-40b0-b006-dfe9b37a5029",
             "type": "pose_instance",
-            "duration": "00:05",
+            "duration": "00:04",
             "poseVariationId": "d8290162-725b-487f-9549-7eb3039678cd"
           },
           {
             "id": "cae7034d-648c-4964-9c9e-31d12560c624",
             "type": "pose_instance",
-            "duration": "00:05",
+            "duration": "00:04",
             "poseVariationId": "55b2dca6-d153-4ce5-a035-834a81229020"
           },
           {
             "id": "1b8a7437-1c59-483c-a0c0-cf53aeba3cf3",
             "type": "pose_instance",
-            "duration": "00:10",
+            "duration": "00:08",
             "poseVariationId": "e611e57f-759b-4338-b174-8040b87ac8f5"
           },
           {
             "id": "cc2e3b15-8c83-4bd0-bc53-e4d2bc461a6c",
             "type": "pose_instance",
-            "duration": "00:05",
+            "duration": "00:04",
             "poseVariationId": "55b2dca6-d153-4ce5-a035-834a81229020"
+          },
+          {
+            "id": "34be8f06-56ae-4dfa-b261-c9ad1bb35059",
+            "type": "pose_instance",
+            "duration": "00:04",
+            "poseVariationId": "d8290162-725b-487f-9549-7eb3039678cd"
+          },
+          {
+            "id": "bf15912a-f2e4-4c55-b75c-ba2843bcd794",
+            "type": "pose_instance",
+            "duration": "00:03",
+            "poseVariationId": "5c0b9a60-6dba-47d5-94d3-f7175237b953"
+          },
+          {
+            "id": "eaa9fd55-a65e-4782-8f7c-eda3c5d10689",
+            "type": "pose_instance",
+            "duration": "00:08",
+            "poseVariationId": "daa8b2c8-5f00-414d-ae81-38f0253c93a3"
+          },
+          {
+            "id": "df85f59b-dad2-4d8d-80b3-63101a3bda6a",
+            "type": "pose_instance",
+            "duration": "00:03",
+            "poseVariationId": "adf96118-7dd2-4d62-be2f-7b4bc2fb35e7"
           }
         ],
         "roundOverrides": [],

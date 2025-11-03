@@ -52,4 +52,5 @@ export type Sequence = {
   id: string;
   name: string;
   sections: Section[];
+  share_id?: string | null;  // Unique share token for public access
 }

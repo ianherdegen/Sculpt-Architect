@@ -89,6 +89,7 @@ CREATE TABLE sequences (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   sections JSONB NOT NULL DEFAULT '[]'::jsonb,
+  share_id TEXT UNIQUE,  -- Unique token for public sharing
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -100,6 +101,7 @@ CREATE TABLE sequences (
 CREATE INDEX idx_pose_variations_pose_id ON pose_variations(pose_id);
 CREATE INDEX idx_sequences_name ON sequences(name);
 CREATE INDEX idx_sequences_user_id ON sequences(user_id);
+CREATE INDEX idx_sequences_share_id ON sequences(share_id);
 
 -- ============================================================================
 -- STEP 4: CREATE FUNCTIONS
@@ -257,9 +259,10 @@ CREATE POLICY "Everyone can delete pose variations"
   USING (true);
 
 -- Sequences: Users can only see and modify their own sequences
+-- Also allow public access to sequences with a share_id
 CREATE POLICY "Users can view their own sequences"
   ON sequences FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR share_id IS NOT NULL);
 
 CREATE POLICY "Users can insert their own sequences"
   ON sequences FOR INSERT

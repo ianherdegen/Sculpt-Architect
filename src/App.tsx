@@ -107,12 +107,13 @@ function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<v
   const handleSignOut = async () => {
     try {
       await signOut();
-      // Navigate to home page after successful sign out
-      navigate('/', { replace: true });
+      // Use window.location to force a full page reload and ensure auth state is cleared
+      // This prevents race conditions where navigation happens before state updates
+      window.location.href = '/';
     } catch (error) {
       console.error('Error during sign out:', error);
       // Still navigate even if there's an error
-      navigate('/', { replace: true });
+      window.location.href = '/';
     }
   };
 

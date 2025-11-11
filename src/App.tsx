@@ -52,6 +52,44 @@ function PageTitle() {
     }
     ogTitle.setAttribute('content', title);
     
+    // Update or create Open Graph URL meta tag
+    const baseUrl = window.location.origin;
+    const currentUrl = baseUrl + location.pathname;
+    let ogUrl = document.querySelector('meta[property="og:url"]');
+    if (!ogUrl) {
+      ogUrl = document.createElement('meta');
+      ogUrl.setAttribute('property', 'og:url');
+      document.head.appendChild(ogUrl);
+    }
+    ogUrl.setAttribute('content', currentUrl);
+    
+    // Update or create Open Graph image meta tag (use absolute URL)
+    const ogImageUrl = baseUrl + '/og-image.svg';
+    let ogImage = document.querySelector('meta[property="og:image"]');
+    if (!ogImage) {
+      ogImage = document.createElement('meta');
+      ogImage.setAttribute('property', 'og:image');
+      document.head.appendChild(ogImage);
+    }
+    ogImage.setAttribute('content', ogImageUrl);
+    
+    // Update Twitter meta tags
+    let twitterTitle = document.querySelector('meta[name="twitter:title"]');
+    if (!twitterTitle) {
+      twitterTitle = document.createElement('meta');
+      twitterTitle.setAttribute('name', 'twitter:title');
+      document.head.appendChild(twitterTitle);
+    }
+    twitterTitle.setAttribute('content', title);
+    
+    let twitterImage = document.querySelector('meta[name="twitter:image"]');
+    if (!twitterImage) {
+      twitterImage = document.createElement('meta');
+      twitterImage.setAttribute('name', 'twitter:image');
+      document.head.appendChild(twitterImage);
+    }
+    twitterImage.setAttribute('content', ogImageUrl);
+    
     // Update or create standard meta name tag
     let metaName = document.querySelector('meta[name="title"]');
     if (!metaName) {

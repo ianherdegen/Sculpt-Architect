@@ -116,7 +116,13 @@ export function AuthPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="mb-2">Sculpt Architect</h1>
+          <img 
+            src="/logo.png" 
+            alt="Sculpt Architect Logo" 
+            className="mx-auto mb-4"
+            style={{ width: '64px', height: '64px' }}
+          />
+          <h1 className="text-xl font-light tracking-widest uppercase mb-2">SCULPT ARCHITECT</h1>
           <p className="text-muted-foreground">Build and manage your sculpt practice</p>
         </div>
 

@@ -41,9 +41,10 @@ function PageTitle() {
     };
     
     const title = getPageTitle();
+    // Set page title
     document.title = title;
     
-    // Update or create Open Graph title meta tag
+    // Update or create Open Graph title meta tag - always match page title
     let ogTitle = document.querySelector('meta[property="og:title"]');
     if (!ogTitle) {
       ogTitle = document.createElement('meta');
@@ -51,6 +52,15 @@ function PageTitle() {
       document.head.appendChild(ogTitle);
     }
     ogTitle.setAttribute('content', title);
+    
+    // Also update Twitter title to match
+    let twitterTitle = document.querySelector('meta[name="twitter:title"]');
+    if (!twitterTitle) {
+      twitterTitle = document.createElement('meta');
+      twitterTitle.setAttribute('name', 'twitter:title');
+      document.head.appendChild(twitterTitle);
+    }
+    twitterTitle.setAttribute('content', title);
     
     // Update or create Open Graph URL meta tag
     const baseUrl = window.location.origin;
@@ -73,15 +83,7 @@ function PageTitle() {
     }
     ogImage.setAttribute('content', ogImageUrl);
     
-    // Update Twitter meta tags
-    let twitterTitle = document.querySelector('meta[name="twitter:title"]');
-    if (!twitterTitle) {
-      twitterTitle = document.createElement('meta');
-      twitterTitle.setAttribute('name', 'twitter:title');
-      document.head.appendChild(twitterTitle);
-    }
-    twitterTitle.setAttribute('content', title);
-    
+    // Update Twitter image meta tag
     let twitterImage = document.querySelector('meta[name="twitter:image"]');
     if (!twitterImage) {
       twitterImage = document.createElement('meta');

@@ -1,18 +1,154 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Link, useLocation, Navigate, useParams } from 'react-router-dom';
 import { PoseLibrary } from './components/PoseLibrary';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
 import { AuthPage } from './components/AuthPage';
+import { Profile } from './components/Profile';
+import { PublicProfile } from './components/PublicProfile';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import { useAuth } from './lib/auth';
-import { Dumbbell, ListOrdered, BookOpen, LogOut } from 'lucide-react';
+import { Dumbbell, ListOrdered, BookOpen, User, Home } from 'lucide-react';
 import { Button } from './components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { useIsMobile } from './components/ui/use-mobile';
+import { useNavigate } from 'react-router-dom';
 
-export default function App() {
-  const { user, signOut, loading: authLoading } = useAuth();
+// Component to update page title and meta tags based on route
+function PageTitle() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    const getPageTitle = () => {
+      const path = location.pathname;
+      
+      if (path === '/' || path === '/auth') {
+        return 'Sculpt Architect | Home';
+      } else if (path === '/sequence-builder') {
+        return 'Sequence Builder | Sculpt Architect';
+      } else if (path === '/sequence-library') {
+        return 'Sequence Library | Sculpt Architect';
+      } else if (path === '/pose-library') {
+        return 'Pose Library | Sculpt Architect';
+      } else if (path === '/profile') {
+        return 'Profile | Sculpt Architect';
+      } else if (path.startsWith('/profile/')) {
+        return 'Public Profile | Sculpt Architect';
+      }
+      
+      return 'Sculpt Architect | Home';
+    };
+    
+    const title = getPageTitle();
+    document.title = title;
+    
+    // Update or create Open Graph title meta tag
+    let ogTitle = document.querySelector('meta[property="og:title"]');
+    if (!ogTitle) {
+      ogTitle = document.createElement('meta');
+      ogTitle.setAttribute('property', 'og:title');
+      document.head.appendChild(ogTitle);
+    }
+    ogTitle.setAttribute('content', title);
+    
+    // Update or create standard meta name tag
+    let metaName = document.querySelector('meta[name="title"]');
+    if (!metaName) {
+      metaName = document.createElement('meta');
+      metaName.setAttribute('name', 'title');
+      document.head.appendChild(metaName);
+    }
+    metaName.setAttribute('content', title);
+  }, [location.pathname]);
+  
+  return null;
+}
+
+function NavTabs({ location, isSmallScreen }: { location: ReturnType<typeof useLocation>, isSmallScreen: boolean }) {
+  const navigate = useNavigate();
+  
+  const getActiveTab = () => {
+    if (location.pathname === '/sequence-builder') return 'builder';
+    if (location.pathname === '/sequence-library') return 'sequences';
+    if (location.pathname === '/pose-library') return 'library';
+    return 'builder';
+  };
+
+  const handleTabChange = (value: string) => {
+    if (value === 'builder') navigate('/sequence-builder');
+    if (value === 'sequences') navigate('/sequence-library');
+    if (value === 'library') navigate('/pose-library');
+  };
+
+  return (
+    <Tabs value={getActiveTab()} onValueChange={handleTabChange} className="w-full mb-6">
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="builder" className={isSmallScreen ? 'text-xs' : ''}>
+          <ListOrdered className="h-4 w-4 mr-2" />
+          {isSmallScreen ? 'Builder' : 'Sequence Builder'}
+        </TabsTrigger>
+        <TabsTrigger value="sequences" className={isSmallScreen ? 'text-xs' : ''}>
+          <BookOpen className="h-4 w-4 mr-2" />
+          {isSmallScreen ? 'Sequences' : 'Sequence Library'}
+        </TabsTrigger>
+        <TabsTrigger value="library" className={isSmallScreen ? 'text-xs' : ''}>
+          <Dumbbell className="h-4 w-4 mr-2" />
+          {isSmallScreen ? 'Poses' : 'Pose Library'}
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+}
+
+function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<void>, userEmail: string, userId: string }) {
+  const navigate = useNavigate();
+  
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/', { replace: true });
+  };
+
+  return (
+    <AppLayout>
+      <Profile userEmail={userEmail} userId={userId} onSignOut={handleSignOut} />
+    </AppLayout>
+  );
+}
+
+function PublicProfileRoute() {
+  const { shareId } = useParams<{ shareId: string }>();
+  
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="relative w-full">
+          <div className="container max-w-2xl mx-auto">
+            <div className="flex h-16 items-center justify-center px-6 py-4">
+              <h1 className="text-xl font-semibold">Sculpt Architect</h1>
+            </div>
+          </div>
+          <div className="absolute left-4 top-1/2 -translate-y-1/2">
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                <Home className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+      <div className="container max-w-2xl mx-auto">
+        <div className="py-6">
+          <PublicProfile shareId={shareId || ''} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppLayout({ children }: { children?: React.ReactNode }) {
+  const { user, signOut } = useAuth();
+  const location = useLocation();
   const isMobile = useIsMobile();
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   
@@ -24,7 +160,52 @@ export default function App() {
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
-  
+
+  const isProfilePage = location.pathname === '/profile';
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="relative w-full">
+          <div className="container max-w-2xl mx-auto">
+            <div className="flex h-16 items-center justify-center px-6 py-4">
+              <h1 className="text-xl font-semibold">Sculpt Architect</h1>
+            </div>
+          </div>
+          {isProfilePage ? (
+            <div className="absolute left-4 top-1/2 -translate-y-1/2">
+              <Link to="/sequence-library">
+                <Button variant="ghost" size="sm">
+                  <Home className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <Link to="/profile">
+                <Button variant="ghost" size="sm">
+                  <User className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </header>
+      <div className="container max-w-2xl mx-auto">
+        <div className={`${isSmallScreen ? 'py-4 px-4' : 'py-6'}`}>
+          {/* Navigation */}
+          {!isProfilePage && (
+            <NavTabs location={location} isSmallScreen={isSmallScreen} />
+          )}
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const { user, signOut, loading: authLoading } = useAuth();
   const [poses, setPoses] = useState<Pose[]>([]);
   const [variations, setVariations] = useState<PoseVariation[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
@@ -302,63 +483,44 @@ export default function App() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Show loading spinner while checking auth */}
-      {authLoading ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
-      ) : !user ? (
-        /* Show auth landing page if not logged in */
-        <AuthPage />
-      ) : (
-        /* Show app content if logged in */
-        <div className="min-h-screen bg-background">
-          <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="relative w-full">
-              <div className="container max-w-2xl mx-auto">
-                <div className="flex h-16 items-center justify-center px-6 py-4">
-                  <h1 className="text-xl font-semibold">Sculpt Sequence Builder</h1>
-                </div>
-              </div>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <Button variant="ghost" size="sm" onClick={() => signOut()}>
-                  <LogOut className={`h-4 w-4 ${!isSmallScreen ? 'mr-2' : ''}`} />
-                  {!isSmallScreen && 'Logout'}
-                </Button>
-              </div>
-            </div>
-          </header>
-          <div className="container max-w-2xl mx-auto">
-            <div className={`${isSmallScreen ? 'py-4 px-4' : 'py-6'}`}>
-          
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading...</p>
-            </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <PageTitle />
+      <Routes>
+        <Route 
+          path="/" 
+          element={
+          !user ? (
+            <AuthPage />
           ) : (
-            <Tabs defaultValue="builder" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="builder" className={isSmallScreen ? 'text-xs' : ''}>
-                  <ListOrdered className="h-4 w-4 mr-2" />
-                  {isSmallScreen ? 'Builder' : 'Sequence Builder'}
-                </TabsTrigger>
-                <TabsTrigger value="sequences" className={isSmallScreen ? 'text-xs' : ''}>
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  {isSmallScreen ? 'Sequences' : 'Sequence Library'}
-                </TabsTrigger>
-                <TabsTrigger value="library" className={isSmallScreen ? 'text-xs' : ''}>
-                  <Dumbbell className="h-4 w-4 mr-2" />
-                  {isSmallScreen ? 'Poses' : 'Pose Library'}
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="builder" className={`${isSmallScreen ? 'mt-4' : 'mt-0'}`}>
+            <Navigate to="/sequence-library" replace />
+          )
+        } 
+      />
+      <Route
+        path="/sequence-builder"
+        element={
+          !user ? (
+            <Navigate to="/" replace />
+          ) : (
+            <AppLayout>
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading...</p>
+                </div>
+              ) : (
                 <SequenceBuilder
                   sequences={sequences}
                   poses={poses}
@@ -367,17 +529,47 @@ export default function App() {
                   onUpdateSequence={handleUpdateSequence}
                   onDeleteSequence={handleDeleteSequence}
                 />
-              </TabsContent>
-
-              <TabsContent value="sequences" className={`${isSmallScreen ? 'mt-4' : 'mt-0'}`}>
+              )}
+            </AppLayout>
+          )
+        }
+      />
+      <Route
+        path="/sequence-library"
+        element={
+          !user ? (
+            <Navigate to="/" replace />
+          ) : (
+            <AppLayout>
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading...</p>
+                </div>
+              ) : (
                 <SequenceLibrary
                   sequences={sequences}
                   poses={poses}
                   variations={variations}
                 />
-              </TabsContent>
-
-              <TabsContent value="library" className={`${isSmallScreen ? 'mt-4' : 'mt-0'}`}>
+              )}
+            </AppLayout>
+          )
+        }
+      />
+      <Route
+        path="/pose-library"
+        element={
+          !user ? (
+            <Navigate to="/" replace />
+          ) : (
+            <AppLayout>
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading...</p>
+                </div>
+              ) : (
                 <PoseLibrary
                   poses={poses}
                   variations={variations}
@@ -389,13 +581,26 @@ export default function App() {
                   onUpdatePoseName={handleUpdatePoseName}
                   onUpdateVariationName={handleUpdateVariationName}
                 />
-              </TabsContent>
-            </Tabs>
-          )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+              )}
+            </AppLayout>
+          )
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          !user ? (
+            <Navigate to="/" replace />
+          ) : (
+            <ProfileRoute signOut={signOut} userEmail={user?.email || ''} userId={user.id} />
+          )
+        }
+      />
+      <Route
+        path="/profile/:shareId"
+        element={<PublicProfileRoute />}
+      />
+      </Routes>
+    </>
   );
 }

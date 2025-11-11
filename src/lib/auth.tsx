@@ -89,12 +89,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const keys = Object.keys(localStorage)
       keys.forEach(key => {
-        if (key.startsWith('sb-') || key.includes('supabase')) {
+        if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
           localStorage.removeItem(key)
         }
       })
+      // Also try to clear sessionStorage
+      const sessionKeys = Object.keys(sessionStorage)
+      sessionKeys.forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
+          sessionStorage.removeItem(key)
+        }
+      })
     } catch (e) {
-      console.warn('Error clearing localStorage:', e)
+      console.warn('Error clearing storage:', e)
     }
     
     // Wait a moment to ensure the session is fully cleared

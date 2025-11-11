@@ -107,12 +107,16 @@ function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<v
   const handleSignOut = async () => {
     try {
       await signOut();
+      // Add a small delay to ensure state is fully cleared before redirect
+      // This is especially important on deployed environments
+      await new Promise(resolve => setTimeout(resolve, 200));
       // Use window.location to force a full page reload and ensure auth state is cleared
       // This prevents race conditions where navigation happens before state updates
       window.location.href = '/';
     } catch (error) {
       console.error('Error during sign out:', error);
-      // Still navigate even if there's an error
+      // Still navigate even if there's an error, but wait a bit first
+      await new Promise(resolve => setTimeout(resolve, 200));
       window.location.href = '/';
     }
   };

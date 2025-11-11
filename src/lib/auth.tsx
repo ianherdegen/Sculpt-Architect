@@ -74,13 +74,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
+    // Sign out from Supabase - this will trigger onAuthStateChange
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error('Error signing out:', error)
       throw error
     }
+    
     // Clear user state immediately
     setUser(null)
+    
+    // Clear any Supabase-related localStorage items to ensure complete logout
+    // This is important for deployed environments where session persistence can cause issues
+    try {
+      const keys = Object.keys(localStorage)
+      keys.forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          localStorage.removeItem(key)
+        }
+      })
+    } catch (e) {
+      console.warn('Error clearing localStorage:', e)
+    }
+    
+    // Wait a moment to ensure the session is fully cleared
+    // This helps with race conditions, especially on deployed environments
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Verify session is cleared
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      console.warn('Session still exists after signOut, forcing clear')
+      // Force clear by setting user to null again
+      setUser(null)
+    }
   }
 
   return (

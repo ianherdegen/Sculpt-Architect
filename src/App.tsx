@@ -125,7 +125,7 @@ function PublicProfileRoute() {
         <div className="relative w-full">
           <div className="container max-w-2xl mx-auto">
             <div className="flex h-16 items-center justify-center px-6 py-4">
-              <h1 className="text-xl font-semibold">Sculpt Architect</h1>
+              <h1 className="text-xl font-light tracking-widest uppercase">SCULPT ARCHITECT</h1>
             </div>
           </div>
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -169,7 +169,7 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
         <div className="relative w-full">
           <div className="container max-w-2xl mx-auto">
             <div className="flex h-16 items-center justify-center px-6 py-4">
-              <h1 className="text-xl font-semibold">Sculpt Architect</h1>
+              <h1 className="text-xl font-light tracking-widest uppercase">SCULPT ARCHITECT</h1>
             </div>
           </div>
           {isProfilePage ? (

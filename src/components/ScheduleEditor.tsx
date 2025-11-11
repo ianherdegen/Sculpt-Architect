@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Plus, Pencil, Trash2, Calendar, Repeat } from 'lucide-react';
 import { ClassEvent } from './Profile';
+import { useIsMobile } from './ui/use-mobile';
 
 interface ScheduleEditorProps {
   events: ClassEvent[];
@@ -17,6 +18,7 @@ interface ScheduleEditorProps {
 }
 
 export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEvent }: ScheduleEditorProps) {
+  const isMobile = useIsMobile();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ClassEvent | null>(null);
   const [eventType, setEventType] = useState<'recurring' | 'single'>('recurring');
@@ -139,27 +141,46 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
             Add Class or Event
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className={`${isMobile ? 'max-w-full h-[95vh] m-0 rounded-none flex flex-col p-4' : 'max-w-md max-h-[90vh]'} overflow-hidden`}>
+          <DialogHeader className={isMobile ? 'pb-3 flex-shrink-0' : ''}>
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Add New Event'}</DialogTitle>
             <DialogDescription>
               {editingEvent ? 'Update event details' : 'Create a recurring class or single event'}
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={eventType} onValueChange={(v) => setEventType(v as 'recurring' | 'single')}>
-            <TabsList>
-              <TabsTrigger value="recurring">
-                <Repeat className="h-4 w-4 mr-2" />
-                Weekly Class
-              </TabsTrigger>
-              <TabsTrigger value="single">
-                <Calendar className="h-4 w-4 mr-2" />
-                Single Event
-              </TabsTrigger>
-            </TabsList>
+          <div className={`overflow-y-auto flex-1 ${isMobile ? 'min-h-0' : ''}`}>
+            <Tabs value={eventType} onValueChange={(v) => setEventType(v as 'recurring' | 'single')}>
+              <TabsList className={`!grid !grid-cols-2 w-full ${isMobile ? 'gap-1' : ''}`}>
+                <TabsTrigger value="recurring" className={isMobile ? 'text-sm' : ''}>
+                  {isMobile ? (
+                    <>
+                      <Repeat className="h-4 w-4" />
+                      <span className="ml-1.5">Weekly Class</span>
+                    </>
+                  ) : (
+                    <>
+                      <Repeat className="h-4 w-4 mr-2" />
+                      Weekly Class
+                    </>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="single" className={isMobile ? 'text-sm' : ''}>
+                  {isMobile ? (
+                    <>
+                      <Calendar className="h-4 w-4" />
+                      <span className="ml-1.5">Single Event</span>
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Single Event
+                    </>
+                  )}
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="recurring" className="space-y-4 mt-4">
+            <TabsContent value="recurring" className={`space-y-4 mt-4 ${isMobile ? 'pb-2' : ''}`}>
               <div className="space-y-2">
                 <Label htmlFor="title">Class Title *</Label>
                 <Input
@@ -167,13 +188,14 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Morning Flow, Sculpt + Core, etc."
+                  className={isMobile ? 'text-base' : ''}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="day">Day of Week *</Label>
                 <Select value={dayOfWeek.toString()} onValueChange={(v) => setDayOfWeek(parseInt(v))}>
-                  <SelectTrigger>
+                  <SelectTrigger className={isMobile ? 'text-base h-11' : ''}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -186,7 +208,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-2 gap-4'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="start-time">Start Time *</Label>
                   <Input
@@ -194,6 +216,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
+                    className={isMobile ? 'text-base h-11' : ''}
                   />
                 </div>
                 <div className="space-y-2">
@@ -203,6 +226,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
+                    className={isMobile ? 'text-base h-11' : ''}
                   />
                 </div>
               </div>
@@ -214,6 +238,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Studio name, room, etc."
+                  className={isMobile ? 'text-base' : ''}
                 />
               </div>
 
@@ -224,12 +249,13 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Additional class details..."
-                  rows={3}
+                  rows={isMobile ? 4 : 3}
+                  className={isMobile ? 'text-base' : ''}
                 />
               </div>
             </TabsContent>
 
-            <TabsContent value="single" className="space-y-4 mt-4">
+            <TabsContent value="single" className={`space-y-4 mt-4 ${isMobile ? 'pb-2' : ''}`}>
               <div className="space-y-2">
                 <Label htmlFor="event-title">Event Title *</Label>
                 <Input
@@ -237,6 +263,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Workshop, Special Class, etc."
+                  className={isMobile ? 'text-base' : ''}
                 />
               </div>
 
@@ -247,10 +274,11 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  className={isMobile ? 'text-base h-11' : ''}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-2 gap-4'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="event-start">Start Time *</Label>
                   <Input
@@ -258,6 +286,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
+                    className={isMobile ? 'text-base h-11' : ''}
                   />
                 </div>
                 <div className="space-y-2">
@@ -267,6 +296,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
+                    className={isMobile ? 'text-base h-11' : ''}
                   />
                 </div>
               </div>
@@ -278,6 +308,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Studio name, address, etc."
+                  className={isMobile ? 'text-base' : ''}
                 />
               </div>
 
@@ -288,13 +319,15 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Event details, requirements, pricing..."
-                  rows={3}
+                  rows={isMobile ? 4 : 3}
+                  className={isMobile ? 'text-base' : ''}
                 />
               </div>
             </TabsContent>
           </Tabs>
+          </div>
 
-          <DialogFooter>
+          <DialogFooter className={`${isMobile ? 'pt-3 border-t flex-shrink-0 mt-auto gap-2' : ''}`}>
             <Button variant="outline" onClick={() => {
               setIsAddDialogOpen(false);
               resetForm();

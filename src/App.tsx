@@ -149,8 +149,8 @@ function PublicProfileRoute() {
           </div>
         </div>
       </header>
-      <div className="container max-w-2xl mx-auto">
-        <div className="py-6">
+      <div className="container max-w-2xl mx-auto px-4 sm:px-6">
+        <div className="py-4 sm:py-6">
           <PublicProfile shareId={shareId || ''} />
         </div>
       </div>

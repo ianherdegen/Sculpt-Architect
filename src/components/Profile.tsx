@@ -9,6 +9,7 @@ import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check } from 'luci
 import { ScheduleEditor } from './ScheduleEditor';
 import { userProfileService } from '../lib/userProfileService';
 import type { UserProfile as DBUserProfile } from '../lib/supabase';
+import { useIsMobile } from './ui/use-mobile';
 
 export interface ClassEvent {
   id: string;
@@ -39,6 +40,7 @@ interface ProfileProps {
 }
 
 export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, initialProfile }: ProfileProps) {
+  const isMobile = useIsMobile();
   const [isEditing, setIsEditing] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
     }
     
     try {
-      setSlugError(null);
+    setSlugError(null);
       setLoading(true);
       
       // Save to Supabase
@@ -136,8 +138,8 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
         share_id: shareIdToSave,
       });
       
-      setProfile(editedProfile);
-      setIsEditing(false);
+    setProfile(editedProfile);
+    setIsEditing(false);
     } catch (error: any) {
       console.error('Error saving profile:', error);
       setSlugError(error.message || 'Failed to save profile. Please try again.');
@@ -211,7 +213,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
       try {
         await userProfileService.update(userId, {
           events: updatedEvents,
-        });
+    });
         // Update the main profile state so changes are reflected immediately
         setProfile(updatedProfile);
       } catch (error) {
@@ -297,7 +299,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
   }
 
   return (
-    <div className="space-y-6 py-6">
+    <div className={`space-y-4 sm:space-y-6 ${isMobile ? 'py-4' : 'py-6'} ${isViewerMode && isMobile ? 'px-0' : ''}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -305,35 +307,35 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
           <h2 className="text-xl font-semibold">{isViewerMode ? 'Instructor Profile' : 'My Profile'}</h2>
         </div>
         {!isViewerMode && !isEditing && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 ml-auto">
             <Button onClick={handleCopyShareLink} size="sm" variant="outline">
               {linkCopied ? (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Link Copied!
+                  <Check className="h-4 w-4" />
+                  <span className="ml-2">{isMobile ? 'Copied!' : 'Link Copied!'}</span>
                 </>
               ) : (
                 <>
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share Profile
+                  <Share2 className="h-4 w-4" />
+                  <span className="ml-2">{isMobile ? 'Share' : 'Share Profile'}</span>
                 </>
               )}
             </Button>
             <Button onClick={handleEdit} size="sm">
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Profile
+              <Edit className="h-4 w-4" />
+              <span className="ml-2">{isMobile ? 'Edit' : 'Edit Profile'}</span>
             </Button>
           </div>
         )}
         {!isViewerMode && isEditing && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 ml-auto">
             <Button onClick={handleSave} size="sm">
-              <Save className="h-4 w-4 mr-2" />
-              Save
+              <Save className="h-4 w-4" />
+              <span className="ml-2">Save</span>
             </Button>
             <Button onClick={handleCancel} size="sm" variant="outline">
-              <X className="h-4 w-4 mr-2" />
-              Cancel
+              <X className="h-4 w-4" />
+              <span className="ml-2">Cancel</span>
             </Button>
           </div>
         )}
@@ -341,10 +343,10 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
 
       {/* Profile Information */}
       <Card>
-        <CardHeader>
+        <CardHeader className={isMobile && isViewerMode ? 'px-4 pt-6 pb-2' : isMobile ? 'pt-6 pb-2' : ''}>
           <CardTitle>About</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className={`space-y-4 ${isMobile && isViewerMode ? 'px-4 pt-3 pb-4' : isMobile ? 'pt-3' : ''}`}>
           {isEditing ? (
             <>
               <div className="space-y-2">
@@ -423,8 +425,8 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                 {slugError && (
                   <p className="text-sm text-destructive">{slugError}</p>
                 )}
-                {/* Show full link preview */}
-                {(editedProfile.shareId || userId) && (
+                {/* Show full link preview - hidden on mobile */}
+                {(editedProfile.shareId || userId) && !isMobile && (
                   <div className="p-2 bg-muted rounded-md">
                     <p className="text-xs text-muted-foreground mb-1">Full link:</p>
                     <code className="text-xs break-all">
@@ -437,9 +439,9 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                     You're currently using the default ID. Set a custom link (3-30 characters) for a cleaner, shareable URL.
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Choose a custom link for your profile (e.g., "yoga-instructor" or "sarah-martinez")
-                  </p>
+                <p className="text-xs text-muted-foreground">
+                  Choose a custom link for your profile (e.g., "yoga-instructor" or "sarah-martinez")
+                </p>
                 )}
               </div>
             </>
@@ -467,7 +469,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                       </code>
                     </div>
                   )}
-                  {profile.shareId && isDefaultUserId(profile.shareId) && (
+                  {profile.shareId && isDefaultUserId(profile.shareId) && !isMobile && (
                     <div className="p-2 bg-muted rounded-md">
                       <p className="text-xs text-muted-foreground mb-1">Full profile link:</p>
                       <code className="text-xs break-all">
@@ -487,7 +489,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
 
       {/* Schedule */}
       <Card>
-        <CardHeader>
+        <CardHeader className={isMobile && isViewerMode ? 'px-4 pt-6 pb-2' : isMobile ? 'pt-6 pb-2' : ''}>
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             <CardTitle>Class Schedule</CardTitle>
@@ -500,7 +502,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                 : 'Your regular classes and special events'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={isMobile && isViewerMode ? 'px-4 pt-3 pb-4' : isMobile ? 'pt-3' : ''}>
           {isEditing ? (
             <ScheduleEditor
               events={editedProfile.events}

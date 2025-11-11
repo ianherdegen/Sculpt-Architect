@@ -105,8 +105,15 @@ function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<v
   const navigate = useNavigate();
   
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/', { replace: true });
+    try {
+      await signOut();
+      // Navigate to home page after successful sign out
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Error during sign out:', error);
+      // Still navigate even if there's an error
+      navigate('/', { replace: true });
+    }
   };
 
   return (

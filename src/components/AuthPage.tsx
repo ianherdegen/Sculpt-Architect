@@ -116,7 +116,7 @@ export function AuthPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="mb-2">Sculpt Sequence Builder</h1>
+          <h1 className="mb-2">Sculpt Architect</h1>
           <p className="text-muted-foreground">Build and manage your sculpt practice</p>
         </div>
 

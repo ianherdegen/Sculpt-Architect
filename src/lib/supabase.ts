@@ -41,3 +41,27 @@ export interface Sequence {
   created_at: string
   updated_at: string
 }
+
+export interface ClassEvent {
+  id: string
+  title: string
+  dayOfWeek?: number // 0-6 for Sunday-Saturday (for recurring)
+  date?: string // For single events
+  startTime: string
+  endTime: string
+  location: string
+  description?: string
+  isRecurring: boolean
+}
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  name: string
+  bio: string
+  email: string
+  events: ClassEvent[]
+  share_id?: string | null
+  created_at: string
+  updated_at: string
+}

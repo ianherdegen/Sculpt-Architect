@@ -633,3 +633,110 @@ function trySubtractSeconds(section: Section, secondsToSubtract: number): Sectio
   
   return updatedSection;
 }
+
+/**
+ * Timeline item representing a single pose instance in the sequence
+ */
+export type TimelineItem = {
+  id: string;
+  poseInstance: PoseInstance;
+  sectionId: string;
+  sectionName: string;
+  startTime: number; // seconds from sequence start
+  endTime: number; // seconds from sequence start
+  path: string; // human-readable path like "Section 1 > Group Block (Round 2) > Pose Name"
+};
+
+/**
+ * Flatten a sequence into a linear timeline of pose instances
+ * This accounts for sections, group blocks, sets, round overrides, and item substitutes
+ */
+export function flattenSequenceToTimeline(sequence: Sequence): TimelineItem[] {
+  const timeline: TimelineItem[] = [];
+  let currentTime = 0;
+
+  // Helper function to get effective items for a round (duplicated from above for access)
+  const getEffectiveItemsForRound = (groupBlock: GroupBlock, round: number): Array<PoseInstance | GroupBlock> => {
+    const itemSubstitutes = groupBlock.itemSubstitutes || [];
+    const roundSubstitutes = itemSubstitutes.filter(s => s.round === round);
+    const effectiveItems = [...groupBlock.items];
+    roundSubstitutes.forEach(substitute => {
+      if (substitute.itemIndex >= 0 && substitute.itemIndex < effectiveItems.length) {
+        effectiveItems[substitute.itemIndex] = substitute.substituteItem;
+      }
+    });
+    return effectiveItems;
+  };
+
+  for (const section of sequence.sections) {
+    for (const item of section.items) {
+      if (item.type === 'pose_instance') {
+        const duration = parseDuration(item.duration);
+        timeline.push({
+          id: item.id,
+          poseInstance: item,
+          sectionId: section.id,
+          sectionName: section.name,
+          startTime: currentTime,
+          endTime: currentTime + duration,
+          path: section.name,
+        });
+        currentTime += duration;
+      } else if (item.type === 'group_block') {
+        const groupBlock = item;
+        
+        // Process each round/set
+        for (let round = 1; round <= groupBlock.sets; round++) {
+          // Get effective items for this round (with substitutions)
+          const effectiveItems = getEffectiveItemsForRound(groupBlock, round);
+          
+          // Process base items
+          for (let itemIdx = 0; itemIdx < effectiveItems.length; itemIdx++) {
+            const effectiveItem = effectiveItems[itemIdx];
+            
+            if (effectiveItem.type === 'pose_instance') {
+              const duration = parseDuration(effectiveItem.duration);
+              const roundText = groupBlock.sets > 1 ? ` (Round ${round})` : '';
+              timeline.push({
+                id: `${effectiveItem.id}-round-${round}`,
+                poseInstance: effectiveItem,
+                sectionId: section.id,
+                sectionName: section.name,
+                startTime: currentTime,
+                endTime: currentTime + duration,
+                path: `${section.name} > Group Block${roundText}`,
+              });
+              currentTime += duration;
+            }
+            // Note: Nested group blocks are not fully supported in timeline
+          }
+          
+          // Process round override items
+          const override = groupBlock.roundOverrides.find(o => o.round === round);
+          if (override) {
+            const overrideSets = override.sets || 1;
+            for (let overrideSet = 0; overrideSet < overrideSets; overrideSet++) {
+              for (const overrideItem of override.items) {
+                if (overrideItem.type === 'pose_instance') {
+                  const duration = parseDuration(overrideItem.duration);
+                  timeline.push({
+                    id: `${overrideItem.id}-override-round-${round}-set-${overrideSet}`,
+                    poseInstance: overrideItem,
+                    sectionId: section.id,
+                    sectionName: section.name,
+                    startTime: currentTime,
+                    endTime: currentTime + duration,
+                    path: `${section.name} > Group Block (Round ${round} Ending)`,
+                  });
+                  currentTime += duration;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return timeline;
+}

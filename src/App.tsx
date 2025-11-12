@@ -3,11 +3,14 @@ import { Routes, Route, Link, useLocation, Navigate, useParams } from 'react-rou
 import { PoseLibrary } from './components/PoseLibrary';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
+import { SequenceView } from './components/SequenceView';
+import { PublicSequenceView } from './components/PublicSequenceView';
 import { AuthPage } from './components/AuthPage';
 import { Profile } from './components/Profile';
 import { PublicProfile } from './components/PublicProfile';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
+import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
 import { Dumbbell, ListOrdered, BookOpen, User, Home } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -110,7 +113,7 @@ function NavTabs({ location, isSmallScreen }: { location: ReturnType<typeof useL
   
   const getActiveTab = () => {
     if (location.pathname === '/sequence-builder') return 'builder';
-    if (location.pathname === '/sequence-library') return 'sequences';
+    if (location.pathname.startsWith('/sequence-library')) return 'sequences';
     if (location.pathname === '/pose-library') return 'library';
     return 'builder';
   };
@@ -165,6 +168,92 @@ function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<v
     <AppLayout>
       <Profile userEmail={userEmail} userId={userId} onSignOut={handleSignOut} />
     </AppLayout>
+  );
+}
+
+function PublicSequenceRoute() {
+  const { shareId } = useParams<{ shareId: string }>();
+  const [sequence, setSequence] = useState<Sequence | null>(null);
+  const [poses, setPoses] = useState<Pose[]>([]);
+  const [variations, setVariations] = useState<PoseVariation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Convert database sequence to app sequence format
+  const convertDBSequenceToApp = (dbSequence: DBSequence): Sequence => {
+    return {
+      id: dbSequence.id,
+      name: dbSequence.name,
+      sections: dbSequence.sections,
+      share_id: dbSequence.share_id || undefined,
+    };
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load sequence by share_id
+        if (shareId) {
+          const loadedSequence = await sequenceService.getByShareId(shareId);
+          if (!loadedSequence) {
+            setSequence(null);
+            setLoading(false);
+            return;
+          }
+          // Convert to app format
+          setSequence(convertDBSequenceToApp(loadedSequence));
+        }
+        
+        // Load poses and variations (public access)
+        const [posesData, variationsData] = await Promise.all([
+          poseService.getAll(),
+          poseVariationService.getAll()
+        ]);
+        
+        setPoses(posesData);
+        setVariations(variationsData);
+      } catch (error) {
+        console.error('Error loading public sequence:', error);
+        setSequence(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (shareId) {
+      loadData();
+    }
+  }, [shareId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading sequence...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sequence) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Sequence not found</p>
+          <Button onClick={() => window.location.href = '/'}>Go to Home</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PublicSequenceView
+      sequence={sequence}
+      poses={poses}
+      variations={variations}
+    />
   );
 }
 
@@ -610,6 +699,30 @@ export default function App() {
         }
       />
       <Route
+        path="/sequence-library/:sequenceId"
+        element={
+          !user ? (
+            <Navigate to="/" replace />
+          ) : (
+            <AppLayout>
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading...</p>
+                </div>
+              ) : (
+                <SequenceView
+                  sequences={sequences}
+                  poses={poses}
+                  variations={variations}
+                  onUpdateSequence={handleUpdateSequence}
+                />
+              )}
+            </AppLayout>
+          )
+        }
+      />
+      <Route
         path="/pose-library"
         element={
           !user ? (
@@ -651,6 +764,10 @@ export default function App() {
       <Route
         path="/profile/:shareId"
         element={<PublicProfileRoute />}
+      />
+      <Route
+        path="/sequence/:shareId"
+        element={<PublicSequenceRoute />}
       />
       </Routes>
     </>

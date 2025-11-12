@@ -220,5 +220,51 @@ export const sequenceService = {
     }
     
     return { used: sequenceNamesSet.size > 0, sequenceNames: Array.from(sequenceNamesSet) }
+  },
+
+  // Get sequence by share_id (public access, no auth required)
+  async getByShareId(shareId: string): Promise<Sequence | null> {
+    const { data, error } = await supabase
+      .from('sequences')
+      .select('*')
+      .eq('share_id', shareId)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null // Not found
+      throw error
+    }
+    return data
+  },
+
+  // Generate or update share_id for a sequence
+  async generateShareId(id: string, userId: string): Promise<Sequence> {
+    // Generate a random share ID
+    const shareId = `seq_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
+    
+    const { data, error } = await supabase
+      .from('sequences')
+      .update({ share_id: shareId })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // Remove share_id (stop sharing)
+  async removeShareId(id: string, userId: string): Promise<Sequence> {
+    const { data, error } = await supabase
+      .from('sequences')
+      .update({ share_id: null })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
   }
 }

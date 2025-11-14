@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check } from 'lucide-react';
+import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield } from 'lucide-react';
 import { ScheduleEditor } from './ScheduleEditor';
 import { userProfileService } from '../lib/userProfileService';
 import type { UserProfile as DBUserProfile } from '../lib/supabase';
 import { useIsMobile } from './ui/use-mobile';
+import { usePermission } from '../lib/usePermissions';
 
 export interface ClassEvent {
   id: string;
@@ -40,7 +42,9 @@ interface ProfileProps {
 }
 
 export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, initialProfile }: ProfileProps) {
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { hasPermission: hasAdminAccess } = usePermission('admin');
   const [isEditing, setIsEditing] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -308,6 +312,11 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
         </div>
         {!isViewerMode && !isEditing && (
           <div className="flex gap-2 ml-auto">
+            {hasAdminAccess && (
+              <Button onClick={() => navigate('/admin')} size="sm" variant="outline">
+                <Shield className="h-4 w-4" />
+              </Button>
+            )}
             <Button onClick={handleCopyShareLink} size="sm" variant="outline">
               {linkCopied ? (
                 <>

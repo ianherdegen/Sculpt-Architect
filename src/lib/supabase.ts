@@ -19,6 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export interface Pose {
   id: string
   name: string
+  author_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -29,6 +30,11 @@ export interface PoseVariation {
   name: string
   is_default: boolean
   image_url?: string | null
+  cue_1?: string | null
+  cue_2?: string | null
+  cue_3?: string | null
+  breath_transition?: string | null
+  author_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -63,6 +69,7 @@ export interface UserProfile {
   email: string
   events: ClassEvent[]
   share_id?: string | null
+  permissions?: Record<string, boolean>
   created_at: string
   updated_at: string
 }

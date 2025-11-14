@@ -1,5 +1,12 @@
-import { supabase, Pose, PoseVariation as DBPoseVariation, Sequence } from './supabase'
-import { PoseVariation } from '../types'
+import { supabase, Pose as DBPose, PoseVariation as DBPoseVariation, Sequence } from './supabase'
+import { Pose, PoseVariation } from '../types'
+
+// Helper function to convert database pose format to app format
+const dbToAppPose = (dbPose: DBPose): Pose => ({
+  id: dbPose.id,
+  name: dbPose.name,
+  authorId: dbPose.author_id || null
+})
 
 // Helper function to convert database format to app format
 const dbToAppVariation = (dbVariation: DBPoseVariation): PoseVariation => ({
@@ -7,7 +14,12 @@ const dbToAppVariation = (dbVariation: DBPoseVariation): PoseVariation => ({
   poseId: dbVariation.pose_id,
   name: dbVariation.name,
   isDefault: dbVariation.is_default,
-  imageUrl: dbVariation.image_url || null
+  imageUrl: dbVariation.image_url || null,
+  cue1: dbVariation.cue_1 || null,
+  cue2: dbVariation.cue_2 || null,
+  cue3: dbVariation.cue_3 || null,
+  breathTransition: dbVariation.breath_transition || null,
+  authorId: dbVariation.author_id || null
 })
 
 // Helper function to convert app format to database format
@@ -15,7 +27,12 @@ const appToDbVariation = (appVariation: Omit<PoseVariation, 'id' | 'created_at' 
   pose_id: appVariation.poseId,
   name: appVariation.name,
   is_default: appVariation.isDefault,
-  image_url: appVariation.imageUrl || null
+  image_url: appVariation.imageUrl || null,
+  cue_1: appVariation.cue1 || null,
+  cue_2: appVariation.cue2 || null,
+  cue_3: appVariation.cue3 || null,
+  breath_transition: appVariation.breathTransition || null,
+  author_id: appVariation.authorId || null
 })
 
 // Pose operations
@@ -27,30 +44,39 @@ export const poseService = {
       .order('name')
     
     if (error) throw error
-    return data || []
+    return (data || []).map(dbToAppPose)
   },
 
   async create(pose: Omit<Pose, 'id' | 'created_at' | 'updated_at'>): Promise<Pose> {
+    const dbPose: Omit<DBPose, 'id' | 'created_at' | 'updated_at'> = {
+      name: pose.name,
+      author_id: pose.authorId || null
+    }
+    
     const { data, error } = await supabase
       .from('poses')
-      .insert(pose)
+      .insert(dbPose)
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return dbToAppPose(data)
   },
 
   async update(id: string, updates: Partial<Pose>): Promise<Pose> {
+    const dbUpdates: Partial<DBPose> = {}
+    if (updates.name !== undefined) dbUpdates.name = updates.name
+    if (updates.authorId !== undefined) dbUpdates.author_id = updates.authorId || null
+    
     const { data, error } = await supabase
       .from('poses')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single()
     
     if (error) throw error
-    return data
+    return dbToAppPose(data)
   },
 
   async delete(id: string): Promise<void> {
@@ -107,6 +133,10 @@ export const poseVariationService = {
       dbUpdates.image_url = updates.imageUrl || null
       console.log('Updating imageUrl to:', dbUpdates.image_url)
     }
+    if (updates.cue1 !== undefined) dbUpdates.cue_1 = updates.cue1 || null
+    if (updates.cue2 !== undefined) dbUpdates.cue_2 = updates.cue2 || null
+    if (updates.cue3 !== undefined) dbUpdates.cue_3 = updates.cue3 || null
+    if (updates.breathTransition !== undefined) dbUpdates.breath_transition = updates.breathTransition || null
 
     console.log('Updating variation with:', dbUpdates)
 
@@ -359,49 +389,18 @@ export const sequenceService = {
     return { used: sequenceNamesSet.size > 0, sequenceNames: Array.from(sequenceNamesSet) }
   },
 
-  // Get sequence by share_id (public access, no auth required)
-  async getByShareId(shareId: string): Promise<Sequence | null> {
+  // Get sequence by ID (public access, no auth required)
+  async getByIdPublic(id: string): Promise<Sequence | null> {
     const { data, error } = await supabase
       .from('sequences')
       .select('*')
-      .eq('share_id', shareId)
+      .eq('id', id)
       .single()
     
     if (error) {
       if (error.code === 'PGRST116') return null // Not found
       throw error
     }
-    return data
-  },
-
-  // Generate or update share_id for a sequence
-  async generateShareId(id: string, userId: string): Promise<Sequence> {
-    // Generate a random share ID
-    const shareId = `seq_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
-    
-    const { data, error } = await supabase
-      .from('sequences')
-      .update({ share_id: shareId })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
-  },
-
-  // Remove share_id (stop sharing)
-  async removeShareId(id: string, userId: string): Promise<Sequence> {
-    const { data, error } = await supabase
-      .from('sequences')
-      .update({ share_id: null })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single()
-    
-    if (error) throw error
     return data
   }
 }

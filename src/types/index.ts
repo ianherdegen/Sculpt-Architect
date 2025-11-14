@@ -2,6 +2,7 @@
 export type Pose = {
   id: string;             // unique ID
   name: string;           // pose name
+  authorId?: string | null; // user ID of the user who created this pose
 }
 
 export type PoseVariation = {
@@ -10,6 +11,11 @@ export type PoseVariation = {
   name: string;           // variation name
   isDefault: boolean;     // true for exactly one variation per pose
   imageUrl?: string | null; // optional image URL for the variation
+  cue1?: string | null;  // first cue for the pose variation
+  cue2?: string | null;  // second cue for the pose variation
+  cue3?: string | null;  // third cue for the pose variation
+  breathTransition?: string | null;  // breath/transition cue for the pose variation
+  authorId?: string | null; // user ID of the user who created this pose variation
 }
 
 // Sequence builder models
@@ -53,5 +59,4 @@ export type Sequence = {
   id: string;
   name: string;
   sections: Section[];
-  share_id?: string | null;  // Unique share token for public access
 }

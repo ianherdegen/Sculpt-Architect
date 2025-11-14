@@ -9,6 +9,7 @@ export type PoseVariation = {
   poseId: string;         // reference to Pose.id
   name: string;           // variation name
   isDefault: boolean;     // true for exactly one variation per pose
+  imageUrl?: string | null; // optional image URL for the variation
 }
 
 // Sequence builder models

@@ -53,6 +53,7 @@ export function SequenceBuilder({
   const [editedSequenceName, setEditedSequenceName] = useState('');
   const [newSectionName, setNewSectionName] = useState('');
   const [useTemplate, setUseTemplate] = useState(false);
+  const [cloneFromSequenceId, setCloneFromSequenceId] = useState<string | null>(null);
   const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null);
   const [dragOverSectionIndex, setDragOverSectionIndex] = useState<number | null>(null);
   const [groupBlockExpandedStates, setGroupBlockExpandedStates] = useState<Record<string, { isOpen: boolean; isBlockExpanded: boolean }>>({});
@@ -95,17 +96,67 @@ export function SequenceBuilder({
     }
   }, [sequences, selectedSequenceId]);
 
+  // Function to clone sections with new IDs
+  const cloneSectionsWithNewIds = (sections: Section[]): Section[] => {
+    const generateNewId = () => generateUUID();
+    
+    const processItem = (item: PoseInstance | GroupBlock): PoseInstance | GroupBlock => {
+      if (item.type === 'pose_instance') {
+        return {
+          ...item,
+          id: generateNewId()
+        };
+      } else if (item.type === 'group_block') {
+        return {
+          ...item,
+          id: generateNewId(),
+          items: item.items.map(processItem),
+          roundOverrides: item.roundOverrides?.map((override) => ({
+            ...override,
+            items: override.items.map(processItem)
+          })) || [],
+          itemSubstitutes: item.itemSubstitutes?.map((substitute) => ({
+            ...substitute,
+            substituteItem: processItem(substitute.substituteItem)
+          })) || []
+        };
+      }
+      return item;
+    };
+
+    return sections.map(section => ({
+      ...section,
+      id: generateNewId(),
+      items: section.items.map(processItem)
+    }));
+  };
+
   const handleCreateSequence = async () => {
     if (!newSequenceName.trim()) return;
 
+    let sections: Section[] = [];
+    
+    if (cloneFromSequenceId) {
+      // Clone from existing sequence
+      const sourceSequence = sequences.find(s => s.id === cloneFromSequenceId);
+      if (sourceSequence) {
+        sections = cloneSectionsWithNewIds(sourceSequence.sections);
+      }
+    } else if (useTemplate) {
+      // Use template
+      sections = generateTemplateWithNewIds(DEFAULT_SEQUENCE_TEMPLATE);
+    }
+    // Otherwise sections remains empty array
+
     const newSequence = {
       name: newSequenceName.trim(),
-      sections: useTemplate ? generateTemplateWithNewIds(DEFAULT_SEQUENCE_TEMPLATE) : [],
+      sections,
     };
 
     await onCreateSequence(newSequence);
     setNewSequenceName('');
     setUseTemplate(false);
+    setCloneFromSequenceId(null);
     setIsCreateSequenceOpen(false);
   };
 
@@ -354,7 +405,18 @@ export function SequenceBuilder({
           </div>
         )}
         
-        <Dialog open={isCreateSequenceOpen} onOpenChange={setIsCreateSequenceOpen}>
+        <Dialog 
+          open={isCreateSequenceOpen} 
+          onOpenChange={(open) => {
+            setIsCreateSequenceOpen(open);
+            if (!open) {
+              // Reset form state when dialog closes
+              setNewSequenceName('');
+              setUseTemplate(false);
+              setCloneFromSequenceId(null);
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button size="icon" className={isMobile ? 'h-8 w-8' : ''}>
               <Plus className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
@@ -376,22 +438,50 @@ export function SequenceBuilder({
                 />
               </div>
               <div className="space-y-2">
-                <Label>Template</Label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="use-template"
-                    checked={useTemplate}
-                    onChange={(e) => setUseTemplate(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="use-template" className="text-sm font-normal">
-                    Start with default sequence template
-                  </Label>
-                </div>
+                <Label>Start From</Label>
+                <Select
+                  value={cloneFromSequenceId || (useTemplate ? 'template' : 'blank')}
+                  onValueChange={(value) => {
+                    if (value === 'template') {
+                      setUseTemplate(true);
+                      setCloneFromSequenceId(null);
+                    } else if (value === 'blank') {
+                      setUseTemplate(false);
+                      setCloneFromSequenceId(null);
+                    } else {
+                      setUseTemplate(false);
+                      setCloneFromSequenceId(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose starting point" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="blank">Blank sequence</SelectItem>
+                    <SelectItem value="template">Default template</SelectItem>
+                    {sequences.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                          Clone from existing:
+                        </div>
+                        {sequences.map(seq => (
+                          <SelectItem key={seq.id} value={seq.id}>
+                            {seq.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
                 {useTemplate && (
                   <p className="text-xs text-muted-foreground">
                     This will create a comprehensive yoga/sculpt sequence with 11 sections including warm-up, sun salutations, cardio, and cool down.
+                  </p>
+                )}
+                {cloneFromSequenceId && (
+                  <p className="text-xs text-muted-foreground">
+                    This will copy all sections and poses from the selected sequence. All IDs will be regenerated.
                   </p>
                 )}
               </div>

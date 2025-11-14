@@ -486,13 +486,15 @@ export default function App() {
     }
   };
 
-  const handleAddVariation = async (variation: Omit<PoseVariation, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleAddVariation = async (variation: Omit<PoseVariation, 'id' | 'created_at' | 'updated_at'>): Promise<PoseVariation> => {
     try {
       const newVariation = await poseVariationService.create(variation);
       setVariations([...variations, newVariation]);
+      return newVariation;
     } catch (error) {
       console.error('Error adding variation:', error);
       alert('Failed to add variation. Please try again.');
+      throw error;
     }
   };
 
@@ -582,11 +584,87 @@ export default function App() {
 
   const handleUpdateVariationName = async (variationId: string, newName: string) => {
     try {
-      await poseVariationService.update(variationId, { name: newName });
-      setVariations(variations.map(v => v.id === variationId ? { ...v, name: newName } : v));
+      // First, reload the variation from database to get the latest data (including imageUrl)
+      const allVariations = await poseVariationService.getAll();
+      const currentVariation = allVariations.find(v => v.id === variationId);
+      
+      if (!currentVariation) {
+        console.error('Variation not found:', variationId);
+        return;
+      }
+      
+      const updates: Partial<PoseVariation> = { name: newName };
+      
+      // Always preserve imageUrl from database
+      if (currentVariation.imageUrl) {
+        updates.imageUrl = currentVariation.imageUrl;
+        console.log('Preserving imageUrl from database when updating name:', currentVariation.imageUrl);
+      } else {
+        console.log('No imageUrl in database for variation:', variationId);
+      }
+      
+      console.log('Updating variation with:', updates);
+      const updated = await poseVariationService.update(variationId, updates);
+      console.log('Variation name updated, returned data:', updated);
+      console.log('Updated variation imageUrl:', updated.imageUrl);
+      
+      setVariations(prevVariations => 
+        prevVariations.map(v => v.id === variationId ? updated : v)
+      );
     } catch (error) {
       console.error('Error updating variation name:', error);
       alert('Failed to update variation name. Please try again.');
+    }
+  };
+
+  const handleUploadVariationImage = async (variationId: string, file: File) => {
+    try {
+      console.log('Uploading image for variation:', variationId, 'File:', file.name);
+      const imageUrl = await poseVariationService.uploadImage(variationId, file);
+      console.log('Image uploaded successfully, URL:', imageUrl);
+      
+      // Reload variations from database to ensure we have the latest data
+      try {
+        const allVariations = await poseVariationService.getAll();
+        const updatedVariation = allVariations.find(v => v.id === variationId);
+        if (updatedVariation) {
+          console.log('Reloaded variation from database:', updatedVariation);
+          setVariations(prevVariations => 
+            prevVariations.map(v => v.id === variationId ? updatedVariation : v)
+          );
+        } else {
+          // Fallback to manual update
+          setVariations(prevVariations => 
+            prevVariations.map(v => v.id === variationId ? { ...v, imageUrl } : v)
+          );
+        }
+      } catch (reloadError) {
+        console.error('Error reloading variations, using manual update:', reloadError);
+        // Fallback to manual update
+        setVariations(prevVariations => 
+          prevVariations.map(v => v.id === variationId ? { ...v, imageUrl } : v)
+        );
+      }
+    } catch (error) {
+      console.error('Error uploading variation image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to upload image: ${errorMessage}\n\nCheck the browser console for details.`);
+      throw error;
+    }
+  };
+
+  const handleDeleteVariationImage = async (variationId: string, imageUrl: string) => {
+    try {
+      console.log('Deleting image for variation:', variationId);
+      await poseVariationService.deleteImage(variationId, imageUrl);
+      console.log('Image deleted successfully');
+      setVariations(prevVariations => 
+        prevVariations.map(v => v.id === variationId ? { ...v, imageUrl: null } : v)
+      );
+    } catch (error) {
+      console.error('Error deleting variation image:', error);
+      alert(`Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   };
 
@@ -745,6 +823,8 @@ export default function App() {
                   onSetDefaultVariation={handleSetDefaultVariation}
                   onUpdatePoseName={handleUpdatePoseName}
                   onUpdateVariationName={handleUpdateVariationName}
+                  onUploadVariationImage={handleUploadVariationImage}
+                  onDeleteVariationImage={handleDeleteVariationImage}
                 />
               )}
             </AppLayout>

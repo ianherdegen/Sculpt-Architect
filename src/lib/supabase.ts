@@ -28,6 +28,7 @@ export interface PoseVariation {
   pose_id: string
   name: string
   is_default: boolean
+  image_url?: string | null
   created_at: string
   updated_at: string
 }

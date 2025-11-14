@@ -13,7 +13,7 @@ import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
-import { Dumbbell, ListOrdered, BookOpen, User, Home } from 'lucide-react';
+import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { useIsMobile } from './components/ui/use-mobile';
@@ -306,7 +306,7 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
   const isAdminPage = location.pathname === '/admin';
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="relative w-full">
           <div className="container max-w-2xl mx-auto">
@@ -341,7 +341,7 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
           )}
         </div>
       </header>
-      <div className="container max-w-2xl mx-auto">
+      <div className="container max-w-2xl mx-auto flex-1">
         <div className={`${isSmallScreen ? 'py-4 px-4' : 'py-6'}`}>
           {/* Navigation */}
           {!isProfilePage && !isAdminPage && (
@@ -350,6 +350,21 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
           {children}
         </div>
       </div>
+      <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mt-auto">
+        <div className="container max-w-2xl mx-auto">
+          <div className="flex items-center justify-center py-4 px-6">
+            <a
+              href="https://github.com/sponsors/ianherdegen"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Heart className="h-4 w-4" />
+              <span>Sponsor this project</span>
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

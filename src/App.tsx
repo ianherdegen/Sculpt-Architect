@@ -8,6 +8,7 @@ import { PublicSequenceView } from './components/PublicSequenceView';
 import { AuthPage } from './components/AuthPage';
 import { Profile } from './components/Profile';
 import { PublicProfile } from './components/PublicProfile';
+import { AdminPage } from './components/AdminPage';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import type { Sequence as DBSequence } from './lib/supabase';
@@ -172,7 +173,7 @@ function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<v
 }
 
 function PublicSequenceRoute() {
-  const { shareId } = useParams<{ shareId: string }>();
+  const { id } = useParams<{ id: string }>();
   const [sequence, setSequence] = useState<Sequence | null>(null);
   const [poses, setPoses] = useState<Pose[]>([]);
   const [variations, setVariations] = useState<PoseVariation[]>([]);
@@ -184,7 +185,6 @@ function PublicSequenceRoute() {
       id: dbSequence.id,
       name: dbSequence.name,
       sections: dbSequence.sections,
-      share_id: dbSequence.share_id || undefined,
     };
   };
 
@@ -193,9 +193,9 @@ function PublicSequenceRoute() {
       try {
         setLoading(true);
         
-        // Load sequence by share_id
-        if (shareId) {
-          const loadedSequence = await sequenceService.getByShareId(shareId);
+        // Load sequence by UUID (public access)
+        if (id) {
+          const loadedSequence = await sequenceService.getByIdPublic(id);
           if (!loadedSequence) {
             setSequence(null);
             setLoading(false);
@@ -221,10 +221,10 @@ function PublicSequenceRoute() {
       }
     };
 
-    if (shareId) {
+    if (id) {
       loadData();
     }
-  }, [shareId]);
+  }, [id]);
 
   if (loading) {
     return (
@@ -303,6 +303,7 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
   }, []);
 
   const isProfilePage = location.pathname === '/profile';
+  const isAdminPage = location.pathname === '/admin';
 
   return (
     <div className="min-h-screen bg-background">
@@ -321,6 +322,14 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
                 </Button>
               </Link>
             </div>
+          ) : !isAdminPage ? (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <Link to="/profile">
+                <Button variant="ghost" size="sm">
+                  <User className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           ) : (
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
               <Link to="/profile">
@@ -335,7 +344,7 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
       <div className="container max-w-2xl mx-auto">
         <div className={`${isSmallScreen ? 'py-4 px-4' : 'py-6'}`}>
           {/* Navigation */}
-          {!isProfilePage && (
+          {!isProfilePage && !isAdminPage && (
             <NavTabs location={location} isSmallScreen={isSmallScreen} />
           )}
           {children}
@@ -486,13 +495,15 @@ export default function App() {
     }
   };
 
-  const handleAddVariation = async (variation: Omit<PoseVariation, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleAddVariation = async (variation: Omit<PoseVariation, 'id' | 'created_at' | 'updated_at'>): Promise<PoseVariation> => {
     try {
       const newVariation = await poseVariationService.create(variation);
       setVariations([...variations, newVariation]);
+      return newVariation;
     } catch (error) {
       console.error('Error adding variation:', error);
       alert('Failed to add variation. Please try again.');
+      throw error;
     }
   };
 
@@ -582,11 +593,87 @@ export default function App() {
 
   const handleUpdateVariationName = async (variationId: string, newName: string) => {
     try {
-      await poseVariationService.update(variationId, { name: newName });
-      setVariations(variations.map(v => v.id === variationId ? { ...v, name: newName } : v));
+      // First, reload the variation from database to get the latest data (including imageUrl)
+      const allVariations = await poseVariationService.getAll();
+      const currentVariation = allVariations.find(v => v.id === variationId);
+      
+      if (!currentVariation) {
+        console.error('Variation not found:', variationId);
+        return;
+      }
+      
+      const updates: Partial<PoseVariation> = { name: newName };
+      
+      // Always preserve imageUrl from database
+      if (currentVariation.imageUrl) {
+        updates.imageUrl = currentVariation.imageUrl;
+        console.log('Preserving imageUrl from database when updating name:', currentVariation.imageUrl);
+      } else {
+        console.log('No imageUrl in database for variation:', variationId);
+      }
+      
+      console.log('Updating variation with:', updates);
+      const updated = await poseVariationService.update(variationId, updates);
+      console.log('Variation name updated, returned data:', updated);
+      console.log('Updated variation imageUrl:', updated.imageUrl);
+      
+      setVariations(prevVariations => 
+        prevVariations.map(v => v.id === variationId ? updated : v)
+      );
     } catch (error) {
       console.error('Error updating variation name:', error);
       alert('Failed to update variation name. Please try again.');
+    }
+  };
+
+  const handleUploadVariationImage = async (variationId: string, file: File) => {
+    try {
+      console.log('Uploading image for variation:', variationId, 'File:', file.name);
+      const imageUrl = await poseVariationService.uploadImage(variationId, file);
+      console.log('Image uploaded successfully, URL:', imageUrl);
+      
+      // Reload variations from database to ensure we have the latest data
+      try {
+        const allVariations = await poseVariationService.getAll();
+        const updatedVariation = allVariations.find(v => v.id === variationId);
+        if (updatedVariation) {
+          console.log('Reloaded variation from database:', updatedVariation);
+          setVariations(prevVariations => 
+            prevVariations.map(v => v.id === variationId ? updatedVariation : v)
+          );
+        } else {
+          // Fallback to manual update
+          setVariations(prevVariations => 
+            prevVariations.map(v => v.id === variationId ? { ...v, imageUrl } : v)
+          );
+        }
+      } catch (reloadError) {
+        console.error('Error reloading variations, using manual update:', reloadError);
+        // Fallback to manual update
+        setVariations(prevVariations => 
+          prevVariations.map(v => v.id === variationId ? { ...v, imageUrl } : v)
+        );
+      }
+    } catch (error) {
+      console.error('Error uploading variation image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to upload image: ${errorMessage}\n\nCheck the browser console for details.`);
+      throw error;
+    }
+  };
+
+  const handleDeleteVariationImage = async (variationId: string, imageUrl: string) => {
+    try {
+      console.log('Deleting image for variation:', variationId);
+      await poseVariationService.deleteImage(variationId, imageUrl);
+      console.log('Image deleted successfully');
+      setVariations(prevVariations => 
+        prevVariations.map(v => v.id === variationId ? { ...v, imageUrl: null } : v)
+      );
+    } catch (error) {
+      console.error('Error deleting variation image:', error);
+      alert(`Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   };
 
@@ -745,6 +832,40 @@ export default function App() {
                   onSetDefaultVariation={handleSetDefaultVariation}
                   onUpdatePoseName={handleUpdatePoseName}
                   onUpdateVariationName={handleUpdateVariationName}
+                  onUpdateVariationCues={async (variationId: string, cues: { cue1?: string | null; cue2?: string | null; cue3?: string | null; breathTransition?: string | null }) => {
+                    try {
+                      const allVariations = await poseVariationService.getAll();
+                      const currentVariation = allVariations.find(v => v.id === variationId);
+                      
+                      if (!currentVariation) {
+                        console.error('Variation not found:', variationId);
+                        return;
+                      }
+                      
+                      const updates: Partial<PoseVariation> = {};
+                      if (cues.cue1 !== undefined) updates.cue1 = cues.cue1;
+                      if (cues.cue2 !== undefined) updates.cue2 = cues.cue2;
+                      if (cues.cue3 !== undefined) updates.cue3 = cues.cue3;
+                      if (cues.breathTransition !== undefined) updates.breathTransition = cues.breathTransition;
+                      
+                      // Preserve other fields
+                      updates.name = currentVariation.name;
+                      updates.isDefault = currentVariation.isDefault;
+                      if (currentVariation.imageUrl) {
+                        updates.imageUrl = currentVariation.imageUrl;
+                      }
+                      
+                      const updated = await poseVariationService.update(variationId, updates);
+                      setVariations(prevVariations => 
+                        prevVariations.map(v => v.id === variationId ? updated : v)
+                      );
+                    } catch (error) {
+                      console.error('Error updating variation cues:', error);
+                      alert('Failed to update variation cues. Please try again.');
+                    }
+                  }}
+                  onUploadVariationImage={handleUploadVariationImage}
+                  onDeleteVariationImage={handleDeleteVariationImage}
                 />
               )}
             </AppLayout>
@@ -762,11 +883,23 @@ export default function App() {
         }
       />
       <Route
+        path="/admin"
+        element={
+          !user ? (
+            <Navigate to="/" replace />
+          ) : (
+            <AppLayout>
+              <AdminPage />
+            </AppLayout>
+          )
+        }
+      />
+      <Route
         path="/profile/:shareId"
         element={<PublicProfileRoute />}
       />
       <Route
-        path="/sequence/:shareId"
+        path="/sequence/:id"
         element={<PublicSequenceRoute />}
       />
       </Routes>

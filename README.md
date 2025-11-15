@@ -1,5 +1,7 @@
 # Yoga Sequence Builder
 
+Note: This README file was automatically generated and may contain inaccuracies.
+
 A web application for building and managing yoga sequences with pose libraries, variations, and class scheduling.
 
 ## Quick Start

@@ -6,7 +6,6 @@ import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useNavigate } from 'react-router-dom';
-import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;
@@ -709,24 +708,6 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
   const progress = totalDuration > 0 ? Math.min(100, Math.max(0, (currentTime / totalDuration) * 100)) : 0;
   const displayTime = Math.floor(currentTime);
 
-  // Get active pose variation with image for sticky header
-  const getActivePoseWithImage = (): { pose: Pose | null; variation: PoseVariation | null; imageUrl: string | null } | null => {
-    if (!activeItemId || !sequence) return null;
-    
-    const timeline = timelineRef.current;
-    const activeItem = timeline.find(item => item.id === activeItemId);
-    
-    if (!activeItem || activeItem.poseInstance.type !== 'pose_instance') return null;
-    
-    const { pose, variation } = getPoseInfo(activeItem.poseInstance.poseVariationId);
-    
-    if (!variation || !variation.imageUrl) return null;
-    
-    return { pose, variation, imageUrl: variation.imageUrl };
-  };
-
-  const activePoseWithImage = getActivePoseWithImage();
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-2xl mx-auto px-4 sm:px-6">
@@ -829,41 +810,6 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
             </div>
           </div>
         </div>
-
-        {/* Sticky Header with Active Pose Image */}
-        {activePoseWithImage && activePoseWithImage.imageUrl && (
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b shadow-sm py-3 -mx-4 px-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden border-2 border-primary shadow-md">
-                  <ImageWithFallback
-                    src={activePoseWithImage.imageUrl}
-                    alt={activePoseWithImage.pose?.name || 'Active pose'}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-primary">
-                  Current Pose
-                </div>
-                <div className="text-base md:text-lg font-bold truncate">
-                  {activePoseWithImage.pose?.name || 'Unknown'}
-                </div>
-                {activePoseWithImage.variation && !activePoseWithImage.variation.name.includes('(Default)') && (
-                  <div className="text-sm text-muted-foreground truncate">
-                    {activePoseWithImage.variation.name}
-                  </div>
-                )}
-                {currentItemRemaining > 0 && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {formatDuration(Math.floor(currentItemRemaining))} remaining
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Sections */}
         {sequence.sections.length === 0 ? (

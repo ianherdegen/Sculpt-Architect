@@ -13,7 +13,7 @@ The permissions system uses a JSONB column in the `user_profiles` table to store
 
 1. Run the migration script in your Supabase SQL Editor:
    ```sql
-   -- Run: supabase-add-permissions-migration.sql
+   -- Run: sql/supabase-add-permissions-migration.sql
    ```
 
 2. This will:

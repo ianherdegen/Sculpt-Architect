@@ -45,7 +45,9 @@ The `env.template` file contains placeholder values for required environment var
 
 ### Database Setup
 
-Run the `supabase-schema.sql` file in your Supabase SQL Editor to set up the database schema, tables, and policies.
+Run the `sql/supabase-schema.sql` file in your Supabase SQL Editor to set up the database schema, tables, and policies.
+
+All SQL scripts are located in the `sql/` folder for easy organization.
 
 ### Running the Development Server
 

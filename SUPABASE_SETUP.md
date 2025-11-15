@@ -22,7 +22,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 1. Open your Supabase project dashboard
 2. Go to **SQL Editor**
-3. Copy and paste the entire contents of `supabase-schema.sql`
+3. Copy and paste the entire contents of `sql/supabase-schema.sql`
 4. Click **Run** (or press Cmd/Ctrl + Enter)
 
 This will:

@@ -748,36 +748,11 @@ export function SequenceView({ sequences, poses, variations, onUpdateSequence }:
   };
 
   const handleShare = async () => {
-    if (!sequence || !user) return;
+    if (!sequence) return;
     
     try {
-      // Generate share_id if it doesn't exist
-      let shareId = sequence.share_id;
-      if (!shareId) {
-        const updatedSequence = await sequenceService.generateShareId(sequence.id, user.id);
-        shareId = updatedSequence.share_id;
-        
-        // Update local state
-        const appSequence: Sequence = {
-          id: updatedSequence.id,
-          name: updatedSequence.name,
-          sections: updatedSequence.sections,
-          share_id: updatedSequence.share_id || undefined,
-        };
-        setLocalSequence(appSequence);
-        
-        // Update parent state
-        if (onUpdateSequence) {
-          await onUpdateSequence(sequence.id, { share_id: updatedSequence.share_id });
-        }
-      }
-      
-      if (!shareId) {
-        alert('Failed to generate share link. Please try again.');
-        return;
-      }
-      
-      const shareUrl = `${window.location.origin}/sequence/${shareId}`;
+      // Use sequence UUID directly for sharing
+      const shareUrl = `${window.location.origin}/sequence/${sequence.id}`;
       
       // Detect mobile/tablet devices
       const isMobileDevice = isMobile || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||

@@ -542,9 +542,92 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
     return activeItemId.startsWith(poseInstance.id);
   };
 
+  // Helper to find the start time for a pose instance
+  const findPoseInstanceStartTime = (poseInstance: PoseInstance): number | null => {
+    const timeline = timelineRef.current;
+    if (!timeline || timeline.length === 0) return null;
+    // Find the first timeline item that matches this pose instance
+    const matchingItem = timeline.find(item => 
+      item.poseInstance.id === poseInstance.id || item.id.startsWith(poseInstance.id)
+    );
+    return matchingItem ? matchingItem.startTime : null;
+  };
+
+  // Helper to find the start time for a group block (first pose instance in it)
+  const findGroupBlockStartTime = (groupBlock: GroupBlock): number | null => {
+    const timeline = timelineRef.current;
+    if (!timeline || timeline.length === 0) return null;
+    // Find the first timeline item that belongs to any pose instance in this group block
+    // We need to check all items in the group block
+    const checkItem = (item: PoseInstance | GroupBlock): number | null => {
+      if (item.type === 'pose_instance') {
+        const matchingItem = timeline.find(t => 
+          t.poseInstance.id === item.id || t.id.startsWith(item.id)
+        );
+        return matchingItem ? matchingItem.startTime : null;
+      } else {
+        // For nested group blocks, check recursively
+        for (const subItem of item.items) {
+          const time = checkItem(subItem);
+          if (time !== null) return time;
+        }
+        return null;
+      }
+    };
+
+    // Check base items
+    for (const item of groupBlock.items) {
+      const time = checkItem(item);
+      if (time !== null) return time;
+    }
+
+    // Check round overrides
+    for (const override of (groupBlock.roundOverrides || [])) {
+      for (const item of override.items) {
+        const time = checkItem(item);
+        if (time !== null) return time;
+      }
+    }
+
+    return null;
+  };
+
+  // Handler to skip to a specific time
+  const handleSkipToTime = (startTime: number) => {
+    setCurrentTime(startTime);
+    lastUpdateTimeRef.current = Date.now();
+    
+    // Update active item based on the new time
+    const timeline = timelineRef.current;
+    if (!timeline || timeline.length === 0) return;
+    const currentItem = timeline.find(item => 
+      startTime >= item.startTime && startTime < item.endTime
+    );
+    
+    if (currentItem) {
+      setActiveItemId(currentItem.id);
+      setCurrentItemRemaining(Math.max(0, currentItem.endTime - startTime));
+      activeItemIdRef.current = currentItem.id;
+      // Reset spoken item so it will speak again
+      lastSpokenItemIdRef.current = null;
+      
+      // If playing, speak the pose name
+      if (isPlaying && speechSynthesisRef.current) {
+        setTimeout(() => {
+          speakPoseName(currentItem);
+        }, 100);
+      }
+    } else {
+      setActiveItemId(null);
+      setCurrentItemRemaining(0);
+    }
+  };
+
   const renderPoseInstance = (poseInstance: PoseInstance, indent: number = 0) => {
     const { pose, variation } = getPoseInfo(poseInstance.poseVariationId);
     const isActive = isPoseInstanceActive(poseInstance);
+    const startTime = findPoseInstanceStartTime(poseInstance);
+    const isClickable = startTime !== null;
     
     return (
       <div 
@@ -553,8 +636,13 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
           isActive 
             ? 'bg-primary/20 border-l-4 border-primary rounded-r px-2 -ml-2' 
             : ''
-        }`}
+        } ${isClickable ? 'cursor-pointer hover:bg-muted/50' : ''}`}
         style={{ paddingLeft: `${indent * 12}px` }}
+        onClick={() => {
+          if (isClickable && startTime !== null) {
+            handleSkipToTime(startTime);
+          }
+        }}
       >
         <div className="flex-1 min-w-0">
           <span className={`text-sm ${isActive ? 'font-semibold' : ''}`}>
@@ -598,10 +686,20 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
   const renderGroupBlock = (groupBlock: GroupBlock, indent: number = 0) => {
     const itemSubstitutes = groupBlock.itemSubstitutes || [];
     const roundOverrides = groupBlock.roundOverrides || [];
+    const startTime = findGroupBlockStartTime(groupBlock);
+    const isClickable = startTime !== null;
     
     return (
       <div key={groupBlock.id} className="my-2">
-        <div className="flex items-baseline justify-between gap-2 py-1" style={{ paddingLeft: `${indent * 12}px` }}>
+        <div 
+          className={`flex items-baseline justify-between gap-2 py-1 ${isClickable ? 'cursor-pointer hover:bg-muted/50 rounded px-1 -ml-1' : ''}`}
+          style={{ paddingLeft: `${indent * 12}px` }}
+          onClick={() => {
+            if (isClickable && startTime !== null) {
+              handleSkipToTime(startTime);
+            }
+          }}
+        >
           <div className="flex-1">
             <span className="text-sm">
               <span className="text-muted-foreground">Group:</span> {groupBlock.sets} sets
@@ -638,6 +736,9 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                     const displayName = variation ? `${pose?.name || 'Unknown'} (${variation.name})` : 'Unknown';
                     const isActive = isPoseInstanceActive(poseInstance);
                     
+                    const substituteStartTime = findPoseInstanceStartTime(poseInstance);
+                    const isSubstituteClickable = substituteStartTime !== null;
+                    
                     return (
                       <div 
                         key={`${substitute.round}-${substitute.itemIndex}`} 
@@ -645,7 +746,12 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                           isActive 
                             ? 'bg-primary/20 border-l-4 border-primary rounded-r px-2 -ml-2' 
                             : ''
-                        }`}
+                        } ${isSubstituteClickable ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                        onClick={() => {
+                          if (isSubstituteClickable && substituteStartTime !== null) {
+                            handleSkipToTime(substituteStartTime);
+                          }
+                        }}
                       >
                         <span className={`text-xs ${isActive ? 'text-primary font-semibold' : 'text-orange-600 dark:text-orange-400'}`}>
                           Round {substitute.round}: {displayName}
@@ -710,7 +816,7 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto px-4 sm:px-6">
+      <div className="container max-w-2xl mx-auto px-4 sm:px-6 pb-24">
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
@@ -749,67 +855,6 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
           </div>
         </div>
 
-        {/* Timer Controls */}
-        <div className="flex flex-col gap-3 p-3 bg-muted/50 rounded-lg">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant={isPlaying ? "default" : "outline"}
-              size="sm"
-              onClick={handlePlayPause}
-              disabled={sequence.sections.length === 0}
-            >
-              {isPlaying ? (
-                <>
-                  <Pause className="h-4 w-4 mr-2" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Play
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
-            <div className="flex items-center gap-2">
-              <Gauge className="h-4 w-4 text-muted-foreground" />
-              <Select value={playbackSpeed.toString()} onValueChange={handleSpeedChange}>
-                <SelectTrigger className="w-20 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.5">0.5x</SelectItem>
-                  <SelectItem value="1">1x</SelectItem>
-                  <SelectItem value="1.5">1.5x</SelectItem>
-                  <SelectItem value="2">2x</SelectItem>
-                  <SelectItem value="2.5">2.5x</SelectItem>
-                  <SelectItem value="3">3x</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-semibold">
-                {formatDuration(displayTime)} / {formatDuration(totalDuration)}
-              </span>
-            </div>
-            <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
 
         {/* Sections */}
         {sequence.sections.length === 0 ? (
@@ -848,6 +893,82 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
             </div>
           ))
         )}
+        </div>
+      </div>
+      
+      {/* Floating Timer Controls Widget */}
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 9999,
+        backgroundColor: 'hsl(var(--card))',
+        backdropFilter: 'blur(8px)',
+        borderTop: '1px solid hsl(var(--border))',
+        boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
+        padding: isMobile ? '12px' : '16px'
+      }}>
+        <div style={{ maxWidth: '672px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+            <Button
+              variant={isPlaying ? "default" : "outline"}
+              size="sm"
+              onClick={handlePlayPause}
+              disabled={sequence.sections.length === 0}
+            >
+              {isPlaying ? (
+                <>
+                  <Pause className="h-4 w-4 mr-2" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Play
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Gauge className="h-4 w-4 text-muted-foreground" />
+              <Select value={playbackSpeed.toString()} onValueChange={handleSpeedChange}>
+                <SelectTrigger className="w-20 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.5">0.5x</SelectItem>
+                  <SelectItem value="1">1x</SelectItem>
+                  <SelectItem value="1.5">1.5x</SelectItem>
+                  <SelectItem value="2">2x</SelectItem>
+                  <SelectItem value="2.5">2.5x</SelectItem>
+                  <SelectItem value="3">3x</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '200px' }}>
+              <div style={{ flex: 1, backgroundColor: 'hsl(var(--secondary))', height: '8px', borderRadius: '9999px', overflow: 'hidden' }}>
+                <div 
+                  style={{ 
+                    height: '100%', 
+                    backgroundColor: 'hsl(var(--primary))', 
+                    transition: 'width 0.3s',
+                    width: `${progress}%`
+                  }}
+                />
+              </div>
+              <span style={{ fontWeight: '600', fontSize: '14px', whiteSpace: 'nowrap' }}>
+                {formatDuration(displayTime)} / {formatDuration(totalDuration)}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

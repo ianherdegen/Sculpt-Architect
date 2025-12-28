@@ -726,6 +726,20 @@ export default function App() {
     }
   };
 
+  const handleReorderSequences = async (sequenceIds: string[]) => {
+    if (!user) return;
+    try {
+      await sequenceService.reorderSequences(user.id, sequenceIds);
+      // Reorder the local state to match the new order
+      const reorderedSequences = sequenceIds.map(id => sequences.find(s => s.id === id)).filter(Boolean) as Sequence[];
+      const remainingSequences = sequences.filter(s => !sequenceIds.includes(s.id));
+      setSequences([...reorderedSequences, ...remainingSequences]);
+    } catch (error) {
+      console.error('Error reordering sequences:', error);
+      alert('Failed to reorder sequences. Please try again.');
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -771,6 +785,7 @@ export default function App() {
                   onCreateSequence={handleCreateSequence}
                   onUpdateSequence={handleUpdateSequence}
                   onDeleteSequence={handleDeleteSequence}
+                  onReorderSequences={handleReorderSequences}
                 />
               )}
             </AppLayout>
@@ -794,6 +809,7 @@ export default function App() {
                   sequences={sequences}
                   poses={poses}
                   variations={variations}
+                  onReorderSequences={handleReorderSequences}
                 />
               )}
             </AppLayout>

@@ -45,6 +45,7 @@ export interface Sequence {
   name: string
   sections: any[] // JSON array of sections
   share_id?: string | null
+  display_order?: number
   created_at: string
   updated_at: string
 }

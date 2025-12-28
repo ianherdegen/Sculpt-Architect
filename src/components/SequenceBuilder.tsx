@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Sequence, Section, PoseInstance, GroupBlock, Pose, PoseVariation } from '../types';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -31,6 +32,7 @@ interface SequenceBuilderProps {
   onCreateSequence: (sequence: Omit<Sequence, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   onUpdateSequence: (id: string, updates: Partial<Sequence>) => Promise<void>;
   onDeleteSequence: (id: string) => Promise<void>;
+  onReorderSequences?: (sequenceIds: string[]) => void;
 }
 
 export function SequenceBuilder({
@@ -40,6 +42,7 @@ export function SequenceBuilder({
   onCreateSequence,
   onUpdateSequence,
   onDeleteSequence,
+  onReorderSequences,
 }: SequenceBuilderProps) {
   const isMobile = useIsMobile();
   const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(
@@ -59,6 +62,9 @@ export function SequenceBuilder({
   const [groupBlockExpandedStates, setGroupBlockExpandedStates] = useState<Record<string, { isOpen: boolean; isBlockExpanded: boolean }>>({});
   const prevSequenceIdsRef = useRef<Set<string>>(new Set(sequences.map(s => s.id)));
   const isInitialMountRef = useRef(true);
+  const [showFloatingTitle, setShowFloatingTitle] = useState(false);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const floatingTitleRef = useRef<HTMLDivElement>(null);
 
   const selectedSequence = sequences.find(s => s.id === selectedSequenceId);
 
@@ -95,6 +101,32 @@ export function SequenceBuilder({
       setSelectedSequenceId(sequences.length > 0 ? sequences[0].id : null);
     }
   }, [sequences, selectedSequenceId]);
+
+  // Handle scroll to show/hide floating title using IntersectionObserver
+  useEffect(() => {
+    if (!selectedSequence || !titleRef.current) {
+      setShowFloatingTitle(false);
+      return;
+    }
+
+    const titleElement = titleRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Show floating title when the original title is not visible (scrolled out of view)
+        setShowFloatingTitle(!entries[0].isIntersecting);
+      },
+      {
+        threshold: 0,
+        rootMargin: '-80px 0px 0px 0px', // Trigger when title is 80px from top (accounting for header)
+      }
+    );
+
+    observer.observe(titleElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [selectedSequence]);
 
   // Function to clone sections with new IDs
   const cloneSectionsWithNewIds = (sections: Section[]): Section[] => {
@@ -494,15 +526,39 @@ export function SequenceBuilder({
       </div>
 
       {selectedSequence ? (
-        <div className="space-y-4">
-          <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
-            <div className={`flex ${isMobile ? 'flex-col gap-1' : 'items-center gap-3'}`}>
-              <h2 className={isMobile ? 'text-lg' : ''}>{selectedSequence.name}</h2>
-              <span className={`text-muted-foreground flex items-center gap-1.5 ${isMobile ? 'text-sm' : ''}`}>
-                <Clock className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-                {formatDuration(calculateSequenceDuration(selectedSequence))}
-              </span>
-            </div>
+        <>
+          {/* Floating Title Modal - Rendered via Portal to document.body */}
+          {showFloatingTitle && createPortal(
+            <div
+              ref={floatingTitleRef}
+              className="fixed z-[100] bg-background border rounded-lg shadow-lg px-3 py-1.5 transition-all duration-200"
+              style={{ position: 'fixed', top: '16px', left: '16px' }}
+            >
+              <div className={`flex ${isMobile ? 'flex-col gap-0.5' : 'items-center gap-2'}`}>
+                <h2 className={`font-semibold ${isMobile ? 'text-sm' : 'text-sm'}`}>
+                  {selectedSequence.name}
+                </h2>
+                <span className={`text-muted-foreground flex items-center gap-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                  <Clock className="h-3 w-3" />
+                  {formatDuration(calculateSequenceDuration(selectedSequence))}
+                </span>
+              </div>
+            </div>,
+            document.body
+          )}
+
+          <div className="space-y-4">
+            <div 
+              ref={titleRef}
+              className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}
+            >
+              <div className={`flex ${isMobile ? 'flex-col gap-1' : 'items-center gap-3'}`}>
+                <h2 className={isMobile ? 'text-lg' : ''}>{selectedSequence.name}</h2>
+                <span className={`text-muted-foreground flex items-center gap-1.5 ${isMobile ? 'text-sm' : ''}`}>
+                  <Clock className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+                  {formatDuration(calculateSequenceDuration(selectedSequence))}
+                </span>
+              </div>
             <Dialog open={isAddSectionOpen} onOpenChange={setIsAddSectionOpen}>
               <DialogTrigger asChild>
                 <Button className={isMobile ? 'w-full' : ''}>
@@ -593,7 +649,8 @@ export function SequenceBuilder({
               <p>No sections yet. Add your first section to start building your sequence.</p>
             </div>
           )}
-        </div>
+          </div>
+        </>
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <FolderOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />

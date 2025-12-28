@@ -297,10 +297,30 @@ export const sequenceService = {
       .from('sequences')
       .select('*')
       .eq('user_id', userId)
-      .order('name')
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true }) // Secondary sort by name for sequences with same order
     
     if (error) throw error
     return data || []
+  },
+
+  async reorderSequences(userId: string, sequenceIds: string[]): Promise<void> {
+    // Update display_order for each sequence based on its position in the array
+    const updates = sequenceIds.map((id, index) => ({
+      id,
+      display_order: index
+    }));
+
+    // Update all sequences in a transaction-like manner
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('sequences')
+        .update({ display_order: update.display_order })
+        .eq('id', update.id)
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+    }
   },
 
   async getById(id: string, userId: string): Promise<Sequence | null> {
@@ -319,9 +339,20 @@ export const sequenceService = {
   },
 
   async create(sequence: Omit<Sequence, 'id' | 'user_id' | 'created_at' | 'updated_at'>, userId: string): Promise<Sequence> {
+    // Get the current max display_order for this user to set the new sequence's order
+    const { data: maxOrderData } = await supabase
+      .from('sequences')
+      .select('display_order')
+      .eq('user_id', userId)
+      .order('display_order', { ascending: false })
+      .limit(1)
+      .single();
+    
+    const nextOrder = maxOrderData?.display_order !== undefined ? (maxOrderData.display_order + 1) : 0;
+    
     const { data, error } = await supabase
       .from('sequences')
-      .insert({ ...sequence, user_id: userId })
+      .insert({ ...sequence, user_id: userId, display_order: nextOrder })
       .select()
       .single()
     

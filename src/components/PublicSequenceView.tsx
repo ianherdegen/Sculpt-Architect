@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
-import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home } from 'lucide-react';
+import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration, flattenSequenceToTimeline, parseDuration, TimelineItem } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useNavigate } from 'react-router-dom';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;
@@ -46,12 +47,15 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
   const [activeItemId, setActiveItemId] = useState<string | null>(initialState.activeItemId ?? null);
   const [currentItemRemaining, setCurrentItemRemaining] = useState<number>(initialState.currentItemRemaining ?? 0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(initialState.playbackSpeed ?? 1);
+  const [showPoseImage, setShowPoseImage] = useState<boolean>(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timelineRef = useRef<TimelineItem[]>([]);
   const lastUpdateTimeRef = useRef<number>(Date.now());
   const lastSpokenItemIdRef = useRef<string | null>(null);
   const speechSynthesisRef = useRef<SpeechSynthesis | null>(null);
   const activeItemIdRef = useRef<string | null>(null);
+  const timerBarRef = useRef<HTMLDivElement | null>(null);
+  const [timerBarHeight, setTimerBarHeight] = useState<number>(isMobile ? 80 : 90);
 
   // Initialize speech synthesis
   useEffect(() => {
@@ -76,6 +80,27 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
   useEffect(() => {
     activeItemIdRef.current = activeItemId;
   }, [activeItemId]);
+
+  // Measure timer bar height and update pose image position
+  useEffect(() => {
+    const updateTimerBarHeight = () => {
+      if (timerBarRef.current) {
+        const height = timerBarRef.current.offsetHeight;
+        setTimerBarHeight(height + 16); // Add 16px padding above timer bar
+      }
+    };
+
+    updateTimerBarHeight();
+    window.addEventListener('resize', updateTimerBarHeight);
+    
+    // Also update when playing state changes (buttons might change layout)
+    const interval = setInterval(updateTimerBarHeight, 100);
+    
+    return () => {
+      window.removeEventListener('resize', updateTimerBarHeight);
+      clearInterval(interval);
+    };
+  }, [isPlaying, playbackSpeed]);
 
   const getPoseInfo = (variationId: string) => {
     const variation = variations.find(v => v.id === variationId);
@@ -631,7 +656,8 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
     
     return (
       <div 
-        key={poseInstance.id} 
+        key={poseInstance.id}
+        data-pose-instance-id={poseInstance.id}
         className={`flex items-baseline justify-between gap-2 py-1 transition-colors ${
           isActive 
             ? 'bg-primary/20 border-l-4 border-primary rounded-r px-2 -ml-2' 
@@ -741,7 +767,8 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                     
                     return (
                       <div 
-                        key={`${substitute.round}-${substitute.itemIndex}`} 
+                        key={`${substitute.round}-${substitute.itemIndex}`}
+                        data-pose-instance-id={poseInstance.id}
                         className={`ml-8 flex items-baseline justify-between gap-2 py-1 transition-colors ${
                           isActive 
                             ? 'bg-primary/20 border-l-4 border-primary rounded-r px-2 -ml-2' 
@@ -814,8 +841,130 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
   const progress = totalDuration > 0 ? Math.min(100, Math.max(0, (currentTime / totalDuration) * 100)) : 0;
   const displayTime = Math.floor(currentTime);
 
+  // Get current pose image for floating display
+  const getCurrentPoseImage = () => {
+    if (!activeItemId) return null;
+    
+    const currentTimelineItem = timelineRef.current.find(item => item.id === activeItemId);
+    if (!currentTimelineItem) return null;
+    
+    const currentVariation = variations.find(v => v.id === currentTimelineItem.poseInstance.poseVariationId);
+    if (!currentVariation) return null;
+    
+    const currentPose = poses.find(p => p.id === currentVariation.poseId);
+    if (!currentPose) return null;
+    
+    // If current variation has an image, use it
+    if (currentVariation.imageUrl) {
+      return { 
+        imageUrl: currentVariation.imageUrl, 
+        poseName: currentPose.name,
+        poseInstanceId: currentTimelineItem.poseInstance.id
+      };
+    }
+    
+    // Otherwise, use default variation image
+    const defaultVariation = variations.find(v => v.poseId === currentPose.id && v.isDefault);
+    if (defaultVariation?.imageUrl) {
+      return { 
+        imageUrl: defaultVariation.imageUrl, 
+        poseName: currentPose.name,
+        poseInstanceId: currentTimelineItem.poseInstance.id
+      };
+    }
+    
+    return null;
+  };
+
+  const currentPoseImage = getCurrentPoseImage();
+
+  // Handle clicking on floating pose image to scroll to it
+  const handlePoseImageClick = () => {
+    if (!currentPoseImage || !activeItemId) return;
+    
+    // Find all pose instance elements with this ID
+    const poseElements = document.querySelectorAll(`[data-pose-instance-id="${currentPoseImage.poseInstanceId}"]`);
+    
+    if (poseElements.length > 0) {
+      // Scroll to the first matching element (or we could find the active one)
+      poseElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Floating pose image */}
+      {isPlaying && currentPoseImage && (
+        <div 
+          className="fixed right-4 z-[10000] bg-card border rounded-lg flex flex-col items-center overflow-hidden"
+          style={{ 
+            width: isMobile ? '120px' : '150px',
+            maxWidth: '90vw',
+            bottom: `${timerBarHeight}px`,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+          }}
+        >
+          {/* Collapse/Expand button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowPoseImage(!showPoseImage);
+            }}
+            className="w-full flex items-center justify-center gap-1.5 p-2 hover:bg-muted/50 transition-colors cursor-pointer"
+            title={showPoseImage ? "Hide pose image" : "Show pose image"}
+          >
+            {showPoseImage ? (
+              <>
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Hide</span>
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Show</span>
+              </>
+            )}
+          </button>
+          
+          {showPoseImage && (
+            <div 
+              className="px-3 pb-3 pt-1 flex flex-col items-center gap-2 w-full cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={handlePoseImageClick}
+              title="Click to jump to pose in sequence"
+            >
+              <div 
+                className="relative bg-muted rounded-lg overflow-hidden flex items-center justify-center"
+                style={{ 
+                  width: isMobile ? '100px' : '130px', 
+                  height: isMobile ? '100px' : '130px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                <ImageWithFallback
+                  src={currentPoseImage.imageUrl}
+                  alt={currentPoseImage.poseName}
+                  className="object-contain"
+                  style={{ 
+                    maxWidth: isMobile ? '100px' : '130px', 
+                    maxHeight: isMobile ? '100px' : '130px', 
+                    width: 'auto', 
+                    height: 'auto' 
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center font-medium px-1">
+                {currentPoseImage.poseName}
+              </p>
+              {currentItemRemaining > 0 && (
+                <div className="flex items-center gap-1 text-primary font-semibold pb-2">
+                  <Clock className="h-3 w-3" />
+                  <span className="text-sm">{formatDuration(Math.floor(currentItemRemaining))}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="container max-w-2xl mx-auto px-4 sm:px-6 pb-24">
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
@@ -897,18 +1046,21 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
       </div>
       
       {/* Floating Timer Controls Widget */}
-      <div style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        backgroundColor: 'hsl(var(--card))',
-        backdropFilter: 'blur(8px)',
-        borderTop: '1px solid hsl(var(--border))',
-        boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
-        padding: isMobile ? '12px' : '16px'
-      }}>
+      <div 
+        ref={timerBarRef}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9999,
+          backgroundColor: 'hsl(var(--card))',
+          backdropFilter: 'blur(8px)',
+          borderTop: '1px solid hsl(var(--border))',
+          boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
+          padding: isMobile ? '12px' : '16px'
+        }}
+      >
         <div style={{ maxWidth: '672px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
             <Button

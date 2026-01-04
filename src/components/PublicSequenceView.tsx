@@ -965,7 +965,10 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
           )}
         </div>
       )}
-      <div className="container max-w-2xl mx-auto px-4 sm:px-6 pb-24">
+      <div 
+        className="container max-w-2xl mx-auto px-4 sm:px-6"
+        style={{ paddingBottom: `${timerBarHeight + 24}px` }}
+      >
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-4">

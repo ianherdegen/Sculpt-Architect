@@ -1080,7 +1080,10 @@ export function SequenceView({ sequences, poses, variations, onUpdateSequence }:
       </div>
     )}
     
-    <div className={`${isMobile ? 'p-0' : 'p-4'} space-y-4 pb-24`}>
+    <div 
+      className={`${isMobile ? 'p-0' : 'p-4'} space-y-4`}
+      style={{ paddingBottom: `${timerBarHeight + 24}px` }}
+    >
       {/* Header with back button */}
       <div className="flex items-center gap-3 mb-4">
         <Button

@@ -933,6 +933,10 @@ export default function App() {
         path="/sequence/:id"
         element={<PublicSequenceRoute />}
       />
+      <Route
+        path="*"
+        element={<Navigate to="/" replace />}
+      />
       </Routes>
     </>
   );

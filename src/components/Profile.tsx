@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield } from 'lucide-react';
+import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink } from 'lucide-react';
 import { ScheduleEditor } from './ScheduleEditor';
 import { userProfileService } from '../lib/userProfileService';
 import type { UserProfile as DBUserProfile } from '../lib/supabase';
@@ -31,6 +31,7 @@ export interface UserProfile {
   email: string;
   events: ClassEvent[];
   shareId?: string; // Unique ID for shareable profile links
+  venmoUsername?: string; // Venmo username for payment links
 }
 
 interface ProfileProps {
@@ -56,6 +57,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
       email: userEmail,
       events: [],
       shareId: userId || '',
+      venmoUsername: '',
     }
   );
 
@@ -69,6 +71,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
       email: dbProfile.email,
       events: dbProfile.events || [],
       shareId: dbProfile.share_id || undefined,
+      venmoUsername: dbProfile.venmo_username || undefined,
     };
   };
 
@@ -140,6 +143,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
         bio: editedProfile.bio,
         events: editedProfile.events,
         share_id: shareIdToSave,
+        venmo_username: editedProfile.venmoUsername?.trim() || null,
       });
       
     setProfile(editedProfile);
@@ -291,6 +295,64 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
     return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  // Convert URLs in text to clickable links
+  const linkifyText = (text: string): React.ReactNode => {
+    // URL regex pattern: matches http://, https://, www., or domain.com patterns
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}[^\s]*)/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+    let keyCounter = 0;
+
+    while ((match = urlRegex.exec(text)) !== null) {
+      // Add text before the URL
+      if (match.index > lastIndex) {
+        const beforeText = text.substring(lastIndex, match.index);
+        if (beforeText) {
+          parts.push(<React.Fragment key={`text-${keyCounter++}`}>{beforeText}</React.Fragment>);
+        }
+      }
+
+      // Add the URL as a link
+      let url = match[0];
+      let displayUrl = url;
+      
+      // Add protocol if missing
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      
+      // Truncate display URL if too long
+      if (displayUrl.length > 50) {
+        displayUrl = displayUrl.substring(0, 47) + '...';
+      }
+
+      parts.push(
+        <a
+          key={`link-${keyCounter++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+        >
+          {displayUrl}
+        </a>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      const remainingText = text.substring(lastIndex);
+      if (remainingText) {
+        parts.push(<React.Fragment key={`text-${keyCounter++}`}>{remainingText}</React.Fragment>);
+      }
+    }
+
+    return parts.length > 0 ? <>{parts}</> : text;
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 py-6">
@@ -378,6 +440,22 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="venmoUsername">Venmo Username</Label>
+                <Input
+                  id="venmoUsername"
+                  value={editedProfile.venmoUsername || ''}
+                  onChange={(e) => {
+                    // Remove @ symbol if user types it, Venmo usernames don't include @
+                    const value = e.target.value.replace('@', '').trim();
+                    setEditedProfile({ ...editedProfile, venmoUsername: value });
+                  }}
+                  placeholder="your-venmo-username"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your Venmo username (without @) will be displayed on your public profile with a payment link.
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="shareId">Custom Profile Link</Label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -462,7 +540,23 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                 </div>
               )}
               {profile.bio && (
-                <p className="text-muted-foreground whitespace-pre-wrap">{profile.bio}</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">
+                  {linkifyText(profile.bio)}
+                </p>
+              )}
+              {profile.venmoUsername && (
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="text-xl">🫴</span>
+                  <a
+                    href={`https://venmo.com/${profile.venmoUsername.replace(/^@/, '')}?txn=pay`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#3D95CE] hover:underline flex items-center gap-1 font-medium"
+                  >
+                    Donations via Venmo: @{profile.venmoUsername.replace(/^@/, '')}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               )}
               {!profile.name && !profile.bio && (
                 <p className="text-muted-foreground italic">No profile information yet. Click "Edit Profile" to add your bio.</p>

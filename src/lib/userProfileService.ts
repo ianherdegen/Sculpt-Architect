@@ -15,6 +15,7 @@ export interface UpdateUserProfileInput {
   email?: string
   events?: ClassEvent[]
   share_id?: string | null
+  venmo_username?: string | null
 }
 
 export const userProfileService = {
@@ -77,6 +78,7 @@ export const userProfileService = {
     if (input.email !== undefined) updateData.email = input.email
     if (input.events !== undefined) updateData.events = input.events
     if (input.share_id !== undefined) updateData.share_id = input.share_id || null
+    if (input.venmo_username !== undefined) updateData.venmo_username = input.venmo_username || null
 
     const { data, error } = await supabase
       .from('user_profiles')

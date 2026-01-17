@@ -70,6 +70,7 @@ export interface UserProfile {
   email: string
   events: ClassEvent[]
   share_id?: string | null
+  venmo_username?: string | null
   permissions?: Record<string, boolean>
   created_at: string
   updated_at: string

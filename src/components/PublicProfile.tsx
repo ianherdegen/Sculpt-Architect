@@ -22,6 +22,7 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
       email: dbProfile.email,
       events: dbProfile.events || [],
       shareId: dbProfile.share_id || undefined,
+      venmoUsername: dbProfile.venmo_username || undefined,
     };
   };
 

@@ -18,9 +18,9 @@
   --accent-foreground: oklch(0.25 0.02 30);
   --destructive: #ff6b6b;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 107, 74, 0.2);
-  --input: transparent;
-  --input-background: #fff5f2;
+  --border: rgba(255, 107, 74, 0.4);
+  --input: rgba(255, 107, 74, 0.4);
+  --input-background: #ffe8e0;
   --switch-background: #ffc4b3;
   --font-weight-medium: 500;
   --font-weight-normal: 400;

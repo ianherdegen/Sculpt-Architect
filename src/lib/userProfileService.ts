@@ -16,6 +16,8 @@ export interface UpdateUserProfileInput {
   events?: ClassEvent[]
   share_id?: string | null
   venmo_username?: string | null
+  profile_photo_url?: string | null
+  is_banned?: boolean
 }
 
 export const userProfileService = {
@@ -79,6 +81,8 @@ export const userProfileService = {
     if (input.events !== undefined) updateData.events = input.events
     if (input.share_id !== undefined) updateData.share_id = input.share_id || null
     if (input.venmo_username !== undefined) updateData.venmo_username = input.venmo_username || null
+    if (input.profile_photo_url !== undefined) updateData.profile_photo_url = input.profile_photo_url || null
+    if (input.is_banned !== undefined) updateData.is_banned = input.is_banned
 
     const { data, error } = await supabase
       .from('user_profiles')
@@ -95,6 +99,88 @@ export const userProfileService = {
       throw error
     }
     return data
+  },
+
+  // Upload profile photo
+  async uploadProfilePhoto(userId: string, file: File): Promise<string> {
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `photo-${Date.now()}.${fileExt}`
+      const filePath = `${userId}/${fileName}`
+
+      console.log('Uploading profile photo to path:', filePath)
+
+      // Upload file to storage
+      const { error: uploadError, data } = await supabase.storage
+        .from('profile-photos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError)
+        const errorMsg = uploadError.message || String(uploadError)
+        if (errorMsg.includes('RLS') || errorMsg.includes('policy') || errorMsg.includes('violates') || errorMsg.includes('42501')) {
+          throw new Error(`Storage RLS policy error: ${errorMsg}. Make sure the 'profile-photos' bucket exists and has proper policies. Run supabase-profile-photos-storage-setup.sql in your Supabase SQL Editor.`)
+        }
+        throw new Error(`Failed to upload photo: ${errorMsg}`)
+      }
+
+      console.log('File uploaded successfully, data:', data)
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(filePath)
+
+      console.log('Public URL:', publicUrl)
+
+      // Update profile with photo URL
+      const updated = await this.update(userId, { profile_photo_url: publicUrl })
+      console.log('Profile updated with photo URL:', updated)
+
+      return publicUrl
+    } catch (error) {
+      console.error('Error uploading profile photo:', error)
+      throw error
+    }
+  },
+
+  // Delete profile photo
+  async deleteProfilePhoto(userId: string, photoUrl: string): Promise<void> {
+    try {
+      // Extract file path from URL
+      const urlParts = photoUrl.split('/profile-photos/')
+      if (urlParts.length !== 2) {
+        throw new Error('Invalid photo URL format')
+      }
+      const filePath = urlParts[1].split('?')[0] // Remove query params if any
+
+      console.log('Deleting profile photo from path:', filePath)
+
+      // Delete file from storage
+      const { error: deleteError } = await supabase.storage
+        .from('profile-photos')
+        .remove([filePath])
+
+      if (deleteError) {
+        console.error('Storage delete error:', deleteError)
+        throw new Error(`Failed to delete photo: ${deleteError.message}`)
+      }
+
+      // Update profile to remove photo URL
+      await this.update(userId, { profile_photo_url: null })
+      console.log('Profile photo deleted successfully')
+    } catch (error) {
+      console.error('Error deleting profile photo:', error)
+      throw error
+    }
+  },
+
+  // Ban/unban user (admin only)
+  async banUser(userId: string, isBanned: boolean): Promise<UserProfile> {
+    return this.update(userId, { is_banned: isBanned })
   },
 
   async getOrCreate(userId: string, email: string): Promise<UserProfile> {

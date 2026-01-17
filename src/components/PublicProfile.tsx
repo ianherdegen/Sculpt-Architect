@@ -23,6 +23,7 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
       events: dbProfile.events || [],
       shareId: dbProfile.share_id || undefined,
       venmoUsername: dbProfile.venmo_username || undefined,
+      profilePhotoUrl: dbProfile.profile_photo_url || undefined,
     };
   };
 
@@ -33,6 +34,12 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
         const dbProfile = await userProfileService.getByShareId(shareId);
         
         if (!dbProfile) {
+          setProfile(null);
+          return;
+        }
+
+        // Check if user is banned
+        if (dbProfile.is_banned) {
           setProfile(null);
           return;
         }

@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink } from 'lucide-react';
+import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2 } from 'lucide-react';
 import { ScheduleEditor } from './ScheduleEditor';
 import { userProfileService } from '../lib/userProfileService';
 import type { UserProfile as DBUserProfile } from '../lib/supabase';
@@ -32,6 +32,7 @@ export interface UserProfile {
   events: ClassEvent[];
   shareId?: string; // Unique ID for shareable profile links
   venmoUsername?: string; // Venmo username for payment links
+  profilePhotoUrl?: string; // Profile photo URL
 }
 
 interface ProfileProps {
@@ -58,10 +59,13 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
       events: [],
       shareId: userId || '',
       venmoUsername: '',
+      profilePhotoUrl: '',
     }
   );
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Convert DB UserProfile to local UserProfile format
   const dbToLocalProfile = (dbProfile: DBUserProfile): UserProfile => {
@@ -72,6 +76,7 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
       events: dbProfile.events || [],
       shareId: dbProfile.share_id || undefined,
       venmoUsername: dbProfile.venmo_username || undefined,
+      profilePhotoUrl: dbProfile.profile_photo_url || undefined,
     };
   };
 
@@ -353,6 +358,61 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
     return parts.length > 0 ? <>{parts}</> : text;
   };
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !userId || isViewerMode) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      // Upload original image without any processing
+      const photoUrl = await userProfileService.uploadProfilePhoto(userId, file);
+      const updatedProfile = { ...profile, profilePhotoUrl: photoUrl };
+      setProfile(updatedProfile);
+      setEditedProfile(updatedProfile);
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      alert(error.message || 'Failed to upload photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    if (!userId || !profile.profilePhotoUrl || isViewerMode) return;
+
+    if (!confirm('Are you sure you want to delete your profile photo?')) {
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      await userProfileService.deleteProfilePhoto(userId, profile.profilePhotoUrl);
+      const updatedProfile = { ...profile, profilePhotoUrl: undefined };
+      setProfile(updatedProfile);
+      setEditedProfile(updatedProfile);
+    } catch (error: any) {
+      console.error('Error deleting photo:', error);
+      alert(error.message || 'Failed to delete photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 py-6">
@@ -418,6 +478,101 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
           <CardTitle>About</CardTitle>
         </CardHeader>
         <CardContent className={`space-y-4 ${isMobile && isViewerMode ? 'px-4 pt-3 pb-4' : isMobile ? 'pt-3' : ''}`}>
+          {/* Profile Photo */}
+          <div className="flex flex-col items-start gap-3">
+            <div 
+              className="relative group"
+              style={{ width: '150px', height: '150px' }}
+            >
+              {profile.profilePhotoUrl ? (
+                <div 
+                  className="rounded-full overflow-hidden border-2 border-border shadow-sm w-full h-full"
+                  style={{ 
+                    width: '150px',
+                    height: '150px',
+                    borderRadius: '50%'
+                  }}
+                >
+                  <img
+                    src={profile.profilePhotoUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover',
+                      display: 'block'
+                    }}
+                  />
+                </div>
+              ) : (
+                <div 
+                  className="rounded-full bg-muted flex items-center justify-center border-2 border-border shadow-sm"
+                  style={{ 
+                    width: '150px',
+                    height: '150px',
+                    borderRadius: '50%'
+                  }}
+                >
+                  <User className="h-16 w-16 text-muted-foreground" />
+                </div>
+              )}
+              {!isViewerMode && isEditing && (
+                <div 
+                  className={`absolute inset-0 bg-black/50 flex items-center justify-center gap-2 transition-opacity duration-200 rounded-full ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  style={{
+                    width: '150px',
+                    height: '150px',
+                    borderRadius: '50%',
+                    zIndex: 10
+                  }}
+                >
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    disabled={uploadingPhoto}
+                    className="h-8 px-3 text-xs relative z-20"
+                  >
+                    {uploadingPhoto ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    ) : (
+                      <Upload className="h-3 w-3" />
+                    )}
+                  </Button>
+                  {profile.profilePhotoUrl && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handlePhotoDelete();
+                      }}
+                      disabled={uploadingPhoto}
+                      className="h-8 px-3 text-xs text-destructive hover:text-destructive relative z-20"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              style={{ display: 'none' }}
+              className="hidden"
+            />
+          </div>
           {isEditing ? (
             <>
               <div className="space-y-2">
@@ -438,22 +593,6 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                   rows={4}
                   placeholder="Tell students about yourself..."
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="venmoUsername">Venmo Username</Label>
-                <Input
-                  id="venmoUsername"
-                  value={editedProfile.venmoUsername || ''}
-                  onChange={(e) => {
-                    // Remove @ symbol if user types it, Venmo usernames don't include @
-                    const value = e.target.value.replace('@', '').trim();
-                    setEditedProfile({ ...editedProfile, venmoUsername: value });
-                  }}
-                  placeholder="your-venmo-username"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Your Venmo username (without @) will be displayed on your public profile with a payment link.
-                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="shareId">Custom Profile Link</Label>
@@ -530,6 +669,22 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                   Choose a custom link for your profile (e.g., "yoga-instructor" or "sarah-martinez")
                 </p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="venmoUsername">Venmo Username</Label>
+                <Input
+                  id="venmoUsername"
+                  value={editedProfile.venmoUsername || ''}
+                  onChange={(e) => {
+                    // Remove @ symbol if user types it, Venmo usernames don't include @
+                    const value = e.target.value.replace('@', '').trim();
+                    setEditedProfile({ ...editedProfile, venmoUsername: value });
+                  }}
+                  placeholder="your-venmo-username"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your Venmo username (without @) will be displayed on your public profile with a payment link.
+                </p>
               </div>
             </>
           ) : (

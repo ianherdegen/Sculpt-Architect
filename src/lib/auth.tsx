@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import type { User } from '@supabase/supabase-js'
+import { userProfileService } from './userProfileService'
 
 interface AuthContextType {
   user: User | null
@@ -19,17 +20,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // Set user and loading immediately, then check ban status in background
       setUser(session?.user ?? null)
+      setLoading(false)
+      
+      // Check ban status in background (non-blocking)
+      if (session?.user) {
+        userProfileService.getByUserId(session.user.id)
+          .then((profile) => {
+            if (profile && profile.is_banned === true) {
+              // Sign out banned user
+              supabase.auth.signOut().then(() => {
+                setUser(null)
+              })
+            }
+          })
+          .catch((error) => {
+            // If error checking ban status, ignore (columns might not exist yet)
+            console.error('Error checking ban status:', error)
+          })
+      }
+    }).catch((error) => {
+      console.error('Error getting session:', error)
+      setUser(null)
       setLoading(false)
     })
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Set user and loading immediately, then check ban status in background
       setUser(session?.user ?? null)
       setLoading(false)
+      
+      // Check ban status in background (non-blocking)
+      if (session?.user) {
+        userProfileService.getByUserId(session.user.id)
+          .then((profile) => {
+            if (profile && profile.is_banned === true) {
+              // Sign out banned user
+              supabase.auth.signOut().then(() => {
+                setUser(null)
+              })
+            }
+          })
+          .catch((error) => {
+            // If error checking ban status, ignore (columns might not exist yet)
+            console.error('Error checking ban status:', error)
+          })
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -49,11 +90,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      return { error: error ? new Error(error.message) : null }
+      
+      if (error) {
+        return { error: new Error(error.message) }
+      }
+
+      // Check if user is banned after successful sign in (only if profile exists and has is_banned field)
+      if (data.user) {
+        try {
+          const profile = await userProfileService.getByUserId(data.user.id)
+          if (profile && profile.is_banned === true) {
+            // Sign out immediately
+            await supabase.auth.signOut()
+            return { error: new Error('Your account has been banned. Please contact support if you believe this is an error.') }
+          }
+        } catch (profileError) {
+          // If error checking ban status, allow user through (columns might not exist yet)
+          console.error('Error checking ban status:', profileError)
+        }
+      }
+
+      return { error: null }
     } catch (error) {
       return { error: error instanceof Error ? error : new Error('Sign in failed') }
     }

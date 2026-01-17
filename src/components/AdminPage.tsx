@@ -8,7 +8,7 @@ import { Input } from './ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Ban, CheckCircle } from 'lucide-react';
 import { useIsMobile } from './ui/use-mobile';
 
 interface UserWithPermissions extends UserProfile {
@@ -121,6 +121,42 @@ export function AdminPage() {
     }
   };
 
+  // Handle ban/unban toggle
+  const handleBanToggle = async (userId: string, isBanned: boolean) => {
+    if (!confirm(`Are you sure you want to ${isBanned ? 'ban' : 'unban'} this user?`)) {
+      return;
+    }
+
+    try {
+      setSaving(userId);
+      
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ is_banned: isBanned })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.user_id === userId 
+          ? { ...u, is_banned: isBanned }
+          : u
+      ));
+
+      // If banning, sign out the user
+      if (isBanned) {
+        // Note: This will be handled by the auth check on their next action
+        console.log(`User ${userId} has been banned`);
+      }
+    } catch (error) {
+      console.error('Error updating ban status:', error);
+      alert('Failed to update ban status. Please try again.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
 
   // Filter users by search query
   const filteredUsers = users.filter(user => 
@@ -206,6 +242,7 @@ export function AdminPage() {
                       {PERMISSION_LABELS[key]}
                     </TableHead>
                   ))}
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -230,6 +267,27 @@ export function AdminPage() {
                         />
                       </TableCell>
                     ))}
+                    <TableCell className="text-center">
+                      <Button
+                        variant={user.is_banned ? "destructive" : "outline"}
+                        size="sm"
+                        disabled={saving === user.user_id}
+                        onClick={() => handleBanToggle(user.user_id, !user.is_banned)}
+                        className="gap-2"
+                      >
+                        {user.is_banned ? (
+                          <>
+                            <Ban className="h-4 w-4" />
+                            {isMobile ? 'Unban' : 'Unban User'}
+                          </>
+                        ) : (
+                          <>
+                            <Ban className="h-4 w-4" />
+                            {isMobile ? 'Ban' : 'Ban User'}
+                          </>
+                        )}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

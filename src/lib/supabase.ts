@@ -71,6 +71,8 @@ export interface UserProfile {
   events: ClassEvent[]
   share_id?: string | null
   venmo_username?: string | null
+  profile_photo_url?: string | null
+  is_banned?: boolean
   permissions?: Record<string, boolean>
   created_at: string
   updated_at: string

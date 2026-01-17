@@ -545,17 +545,23 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
                 </p>
               )}
               {profile.venmoUsername && (
-                <div className="flex items-center gap-2 pt-2">
-                  <span className="text-xl">🫴</span>
-                  <a
-                    href={`https://venmo.com/${profile.venmoUsername.replace(/^@/, '')}?txn=pay`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#3D95CE] hover:underline flex items-center gap-1 font-medium"
-                  >
-                    Donations via Venmo: @{profile.venmoUsername.replace(/^@/, '')}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                <div className="pt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🫴</span>
+                    <span className="font-medium">Donations:</span>
+                  </div>
+                  <div className="flex items-center gap-1 pl-7">
+                    <span className="font-medium">Venmo:</span>
+                    <a
+                      href={`https://venmo.com/${profile.venmoUsername.replace(/^@/, '')}?txn=pay`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#3D95CE] hover:underline flex items-center gap-1 font-medium"
+                    >
+                      @{profile.venmoUsername.replace(/^@/, '')}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
                 </div>
               )}
               {!profile.name && !profile.bio && (

@@ -76,8 +76,8 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Profile not found</p>
-        <Button onClick={() => navigate(-1)} className="mt-4">
-          Back
+        <Button onClick={() => navigate('/')} className="mt-4">
+          Go to Home
         </Button>
       </div>
     );

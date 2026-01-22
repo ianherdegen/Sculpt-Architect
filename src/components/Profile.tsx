@@ -119,14 +119,18 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
     }
   }, [initialProfile]);
 
-  // Load published sequences only when viewing a public profile (viewer mode)
+  // Load published sequences when viewing a public profile or own profile
   useEffect(() => {
-    // Only load sequences in viewer mode (public profiles)
-    if (isViewerMode && profileUserId) {
+    // Use profileUserId if available (public profile), otherwise use userId (own profile)
+    const userIdToLoad = profileUserId || userId;
+    
+    if (userIdToLoad) {
       const loadSequences = async () => {
         try {
           setLoadingSequences(true);
-          const sequences = await sequenceService.getPublishedByUserId(profileUserId);
+          console.log('Loading sequences for user:', userIdToLoad, 'isViewerMode:', isViewerMode);
+          const sequences = await sequenceService.getPublishedByUserId(userIdToLoad);
+          console.log('Loaded sequences:', sequences);
           setPublishedSequences(sequences);
         } catch (error) {
           console.error('Error loading published sequences:', error);
@@ -136,7 +140,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       };
       loadSequences();
     }
-  }, [isViewerMode, profileUserId]);
+  }, [isViewerMode, profileUserId, userId]);
 
   const handleEdit = () => {
     setEditedProfile(profile);
@@ -864,25 +868,8 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
         </CardContent>
       </Card>
 
-      {/* Note about published sequences (only on user's own profile) */}
-      {!isViewerMode && (
-        <Card>
-          <CardContent className={`${isMobile ? 'pt-6 pb-4' : 'p-6'}`}>
-            <div className="flex items-start gap-3">
-              <List className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Published Sequences</p>
-                <p className="text-sm text-muted-foreground">
-                  Sequences you publish using the globe icon in Sequence Library will appear on your public profile page for others to view.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Published Sequences - Only show in viewer mode (public profiles) */}
-      {isViewerMode && (
+      {/* Published Sequences */}
+      {(
         <Card>
           <CardHeader className={isMobile && isViewerMode ? 'px-4 pt-6 pb-2' : isMobile ? 'pt-6 pb-2' : ''}>
             <div className="flex items-center gap-2">

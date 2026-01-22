@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
-import { Clock, Download, Play, Pause, RotateCcw, Gauge, ChevronLeft, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration, flattenSequenceToTimeline, parseDuration, TimelineItem } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
@@ -976,11 +976,10 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/')}
                 className="h-8 w-8"
-                title="Back"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <Home className="h-4 w-4" />
               </Button>
               <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
             </div>

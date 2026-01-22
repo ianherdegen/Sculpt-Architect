@@ -740,6 +740,16 @@ export default function App() {
     }
   };
 
+  const handleTogglePublish = async (sequenceId: string, published: boolean) => {
+    if (!user) return;
+    try {
+      await handleUpdateSequence(sequenceId, { published_to_profile: published });
+    } catch (error) {
+      console.error('Error toggling publish status:', error);
+      alert('Failed to update publish status. Please try again.');
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -810,6 +820,7 @@ export default function App() {
                   poses={poses}
                   variations={variations}
                   onReorderSequences={handleReorderSequences}
+                  onTogglePublish={handleTogglePublish}
                 />
               )}
             </AppLayout>

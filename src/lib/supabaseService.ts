@@ -433,5 +433,19 @@ export const sequenceService = {
       throw error
     }
     return data
+  },
+
+  // Get published sequences for a user's profile (public access)
+  async getPublishedByUserId(userId: string): Promise<Sequence[]> {
+    const { data, error } = await supabase
+      .from('sequences')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('published_to_profile', true)
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true })
+    
+    if (error) throw error
+    return data || []
   }
 }

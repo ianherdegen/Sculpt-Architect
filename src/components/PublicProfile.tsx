@@ -12,6 +12,7 @@ interface PublicProfileProps {
 export function PublicProfile({ shareId }: PublicProfileProps) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Convert DB UserProfile to local UserProfile format
@@ -35,20 +36,25 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
         
         if (!dbProfile) {
           setProfile(null);
+          setProfileUserId(null);
           return;
         }
 
         // Check if user is banned
         if (dbProfile.is_banned) {
           setProfile(null);
+          setProfileUserId(null);
           return;
         }
         
         const localProfile = dbToLocalProfile(dbProfile);
         setProfile(localProfile);
+        // Get user_id from the database profile for loading sequences
+        setProfileUserId(dbProfile.user_id);
       } catch (error) {
         console.error('Error loading public profile:', error);
         setProfile(null);
+        setProfileUserId(null);
       } finally {
         setLoading(false);
       }
@@ -81,6 +87,7 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
     <Profile 
       userEmail={profile.email} 
       userId={shareId}
+      profileUserId={profileUserId || undefined}
       isViewerMode={true}
       initialProfile={profile}
     />

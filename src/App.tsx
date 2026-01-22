@@ -188,6 +188,8 @@ function PublicSequenceRoute() {
     };
   };
 
+  const [dbSequence, setDbSequence] = useState<DBSequence | null>(null);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -198,9 +200,12 @@ function PublicSequenceRoute() {
           const loadedSequence = await sequenceService.getByIdPublic(id);
           if (!loadedSequence) {
             setSequence(null);
+            setDbSequence(null);
             setLoading(false);
             return;
           }
+          // Store the full DB sequence for user_id access
+          setDbSequence(loadedSequence);
           // Convert to app format
           setSequence(convertDBSequenceToApp(loadedSequence));
         }
@@ -216,6 +221,7 @@ function PublicSequenceRoute() {
       } catch (error) {
         console.error('Error loading public sequence:', error);
         setSequence(null);
+        setDbSequence(null);
       } finally {
         setLoading(false);
       }
@@ -253,6 +259,7 @@ function PublicSequenceRoute() {
       sequence={sequence}
       poses={poses}
       variations={variations}
+      sequenceUserId={dbSequence?.user_id}
     />
   );
 }

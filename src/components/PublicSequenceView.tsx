@@ -15,6 +15,7 @@ interface PublicSequenceViewProps {
   sequence: Sequence;
   poses: Pose[];
   variations: PoseVariation[];
+  sequenceUserId?: string; // Optional user_id from database sequence
 }
 
 // Storage key for persisting timer state
@@ -29,7 +30,7 @@ interface TimerState {
   playbackSpeed: number;
 }
 
-export function PublicSequenceView({ sequence, poses, variations }: PublicSequenceViewProps) {
+export function PublicSequenceView({ sequence, poses, variations, sequenceUserId }: PublicSequenceViewProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -38,16 +39,17 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
   
   useEffect(() => {
     const loadProfileInfo = async () => {
-      const dbSequence = sequence as unknown as DBSequence;
-      if (dbSequence.user_id) {
+      // Use sequenceUserId prop if available, otherwise try to get from sequence
+      const userId = sequenceUserId || (sequence as unknown as DBSequence).user_id;
+      if (userId) {
         try {
-          const profile = await userProfileService.getByUserId(dbSequence.user_id);
+          const profile = await userProfileService.getByUserId(userId);
           if (profile) {
             if (profile.name) {
               setProfileName(profile.name);
             }
             // Get shareId for profile link (use share_id if available, otherwise user_id)
-            setProfileShareId(profile.share_id || dbSequence.user_id);
+            setProfileShareId(profile.share_id || userId);
           }
         } catch (error) {
           console.error('Error loading profile info:', error);
@@ -55,7 +57,7 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
       }
     };
     loadProfileInfo();
-  }, [sequence]);
+  }, [sequence, sequenceUserId]);
   
   // Always start fresh - reset timer state on page refresh
   const [initialState] = useState<Partial<TimerState>>(() => {
@@ -1014,15 +1016,15 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    const dbSequence = sequence as unknown as DBSequence;
+                    const userId = sequenceUserId || (sequence as unknown as DBSequence).user_id;
                     // If viewing own sequence, go to own profile edit page, otherwise go to their public profile
-                    if (user && dbSequence.user_id === user.id) {
+                    if (user && userId === user.id) {
                       navigate('/profile');
                     } else {
                       navigate(`/profile/${profileShareId}`);
                     }
                   }}
-                  title={user && (sequence as unknown as DBSequence).user_id === user.id ? "Go to your profile" : `Go to ${profileName || 'profile'}`}
+                  title={user && sequenceUserId === user.id ? "Go to your profile" : `Go to ${profileName || 'profile'}`}
                 >
                   <User className="h-4 w-4 mr-2" />
                   Instructor Profile

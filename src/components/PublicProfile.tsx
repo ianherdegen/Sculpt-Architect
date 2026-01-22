@@ -73,12 +73,22 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
   }
 
   if (!profile) {
+    // Only show back button if user came from same origin (not a direct link)
+    const referrer = document.referrer;
+    const hasReferrer = referrer && new URL(referrer).origin === window.location.origin;
+    
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Profile not found</p>
-        <Button onClick={() => navigate(-1)} className="mt-4">
-          Back
-        </Button>
+        {hasReferrer ? (
+          <Button onClick={() => navigate(-1)} className="mt-4">
+            Back
+          </Button>
+        ) : (
+          <Button onClick={() => navigate('/')} className="mt-4">
+            Go to Home
+          </Button>
+        )}
       </div>
     );
   }

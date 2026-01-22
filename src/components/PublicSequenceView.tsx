@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { userProfileService } from '../lib/userProfileService';
 import type { Sequence as DBSequence } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;

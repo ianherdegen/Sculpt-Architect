@@ -13,7 +13,7 @@ import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
-import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart } from 'lucide-react';
+import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart, ChevronLeft } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { useIsMobile } from './components/ui/use-mobile';
@@ -259,6 +259,7 @@ function PublicSequenceRoute() {
 
 function PublicProfileRoute() {
   const { shareId } = useParams<{ shareId: string }>();
+  const navigate = useNavigate();
   
   return (
     <div className="min-h-screen bg-background">
@@ -270,11 +271,9 @@ function PublicProfileRoute() {
             </div>
           </div>
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
-            <Link to="/">
-              <Button variant="ghost" size="sm">
-                <Home className="h-4 w-4" />
-              </Button>
-            </Link>
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} title="Back">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </header>

@@ -748,7 +748,7 @@ export function PoseLibrary({
               className="ml-auto"
             >
               <Save className="h-4 w-4 mr-2" />
-              Save Changes ({pendingChanges.poses.size + pendingChanges.variations.size + pendingChanges.cues.size})
+              Save Changes ({pendingChanges.poses.size + pendingChanges.variations.size})
             </Button>
           )}
           <Dialog open={isAddPoseOpen} onOpenChange={setIsAddPoseOpen}>
@@ -1375,10 +1375,11 @@ export function PoseLibrary({
               <TableRow className="border-b-2">
                 <TableHead className="w-[200px] font-semibold border-r bg-muted/50">Pose</TableHead>
                 <TableHead className="w-[200px] font-semibold border-r bg-muted/50">Variation</TableHead>
-                <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Cue 1</TableHead>
+                {/* Cues section disabled for now */}
+                {/* <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Cue 1</TableHead>
                 <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Cue 2</TableHead>
                 <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Cue 3</TableHead>
-                <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Breath / Transition</TableHead>
+                <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Breath / Transition</TableHead> */}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1428,10 +1429,11 @@ export function PoseLibrary({
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground italic">No variations</TableCell>
+                      {/* Cues section disabled for now */}
+                      {/* <TableCell className="border-r">-</TableCell>
                       <TableCell className="border-r">-</TableCell>
                       <TableCell className="border-r">-</TableCell>
-                      <TableCell className="border-r">-</TableCell>
-                      <TableCell className="border-r">-</TableCell>
+                      <TableCell className="border-r">-</TableCell> */}
                     </TableRow>
                   );
                 }
@@ -1528,7 +1530,8 @@ export function PoseLibrary({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell 
+                      {/* Cues section disabled for now */}
+                      {/* <TableCell 
                         className={`border-r cursor-text ${
                           isEditingCue1 
                             ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
@@ -1647,7 +1650,7 @@ export function PoseLibrary({
                             </span>
                           </div>
                         )}
-                      </TableCell>
+                      </TableCell> */}
                     </TableRow>
                   );
                 });

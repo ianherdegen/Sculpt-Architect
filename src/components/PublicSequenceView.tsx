@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
-import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, User, ChevronLeft, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration, flattenSequenceToTimeline, parseDuration, TimelineItem } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '../lib/auth';
+import { userProfileService } from '../lib/userProfileService';
+import type { Sequence as DBSequence } from '../lib/supabase';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;
@@ -29,6 +32,30 @@ interface TimerState {
 export function PublicSequenceView({ sequence, poses, variations }: PublicSequenceViewProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [profileShareId, setProfileShareId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const loadProfileInfo = async () => {
+      const dbSequence = sequence as unknown as DBSequence;
+      if (dbSequence.user_id) {
+        try {
+          const profile = await userProfileService.getByUserId(dbSequence.user_id);
+          if (profile) {
+            if (profile.name) {
+              setProfileName(profile.name);
+            }
+            // Get shareId for profile link (use share_id if available, otherwise user_id)
+            setProfileShareId(profile.share_id || dbSequence.user_id);
+          }
+        } catch (error) {
+          console.error('Error loading profile info:', error);
+        }
+      }
+    };
+    loadProfileInfo();
+  }, [sequence]);
   
   // Always start fresh - reset timer state on page refresh
   const [initialState] = useState<Partial<TimerState>>(() => {
@@ -978,9 +1005,41 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                 size="icon"
                 onClick={() => navigate('/')}
                 className="h-8 w-8"
+                title="Go to home"
               >
                 <Home className="h-4 w-4" />
               </Button>
+              {profileShareId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const dbSequence = sequence as unknown as DBSequence;
+                    // If viewing own sequence, go to own profile edit page, otherwise go to their public profile
+                    if (user && dbSequence.user_id === user.id) {
+                      navigate('/profile');
+                    } else {
+                      navigate(`/profile/${profileShareId}`);
+                    }
+                  }}
+                  className="h-8 w-8"
+                  title={user && (sequence as unknown as DBSequence).user_id === user.id ? "Go to your profile" : `Go to ${profileName || 'profile'}`}
+                >
+                  <User className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(user ? '/profile' : '/')}
+                className="h-8 w-8"
+                title={user ? "Go to your profile" : "Go to home"}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {profileName && (
+                <span className="text-sm font-medium">{profileName}</span>
+              )}
               <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
             </div>
           </div>

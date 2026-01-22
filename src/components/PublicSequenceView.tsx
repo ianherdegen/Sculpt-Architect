@@ -1002,17 +1002,17 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={() => navigate('/')}
-                className="h-8 w-8"
                 title="Go to home"
               >
-                <Home className="h-4 w-4" />
+                <Home className="h-4 w-4 mr-2" />
+                Home
               </Button>
               {profileShareId && (
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={() => {
                     const dbSequence = sequence as unknown as DBSequence;
                     // If viewing own sequence, go to own profile edit page, otherwise go to their public profile
@@ -1022,21 +1022,12 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                       navigate(`/profile/${profileShareId}`);
                     }
                   }}
-                  className="h-8 w-8"
                   title={user && (sequence as unknown as DBSequence).user_id === user.id ? "Go to your profile" : `Go to ${profileName || 'profile'}`}
                 >
-                  <User className="h-4 w-4" />
+                  <User className="h-4 w-4 mr-2" />
+                  Instructor Profile
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(user ? '/profile' : '/')}
-                className="h-8 w-8"
-                title={user ? "Go to your profile" : "Go to home"}
-              >
-                <User className="h-4 w-4" />
-              </Button>
               {profileName && (
                 <span className="text-sm font-medium">{profileName}</span>
               )}

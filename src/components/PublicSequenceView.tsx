@@ -1000,7 +1000,7 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
       >
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-4 relative min-h-[40px]">
+          <div className="flex items-center justify-between mb-6 relative min-h-[48px]">
             <Button
               variant="ghost"
               size="sm"
@@ -1010,7 +1010,7 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
               <Home className="h-4 w-4 mr-2" />
               Home
             </Button>
-            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold absolute left-1/2 -translate-x-1/2 px-4 max-w-[calc(100%-280px)] truncate pointer-events-none`}>{sequence.name}</h1>
+            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold absolute left-1/2 -translate-x-1/2 px-4 max-w-[calc(100%-280px)] truncate pointer-events-none z-0`}>{sequence.name}</h1>
             {profileShareId ? (
               <Button
                 variant="ghost"

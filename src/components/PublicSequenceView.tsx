@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '../lib/auth';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;
@@ -28,6 +29,7 @@ interface TimerState {
 
 export function PublicSequenceView({ sequence, poses, variations }: PublicSequenceViewProps) {
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const navigate = useNavigate();
   
   // Always start fresh - reset timer state on page refresh
@@ -973,22 +975,15 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              {/* Only show back button if user came from same origin (not a direct link) */}
-              {(() => {
-                const referrer = document.referrer;
-                const hasReferrer = referrer && new URL(referrer).origin === window.location.origin;
-                return hasReferrer && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate(-1)}
-                    className="h-8 w-8"
-                    title="Back"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                );
-              })()}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(user ? '/profile' : '/')}
+                className="h-8 w-8"
+                title={user ? "Go to your profile" : "Go to home"}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
               <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
             </div>
           </div>

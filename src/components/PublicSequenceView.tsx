@@ -907,28 +907,7 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
       // Use sequence UUID directly for sharing
       const shareUrl = `${window.location.origin}/sequence/${sequence.id}`;
       
-      // Detect mobile/tablet devices
-      const isMobileDevice = isMobile || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                              (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
-      
-      // Use Web Share API on mobile/tablet if available
-      if (isMobileDevice && navigator.share) {
-        try {
-          await navigator.share({
-            title: sequence.name,
-            text: `Check out this yoga sequence: ${sequence.name}`,
-            url: shareUrl,
-          });
-          return;
-        } catch (error: any) {
-          // User cancelled or share failed, fall through to clipboard
-          if (error.name !== 'AbortError') {
-            console.error('Web Share API failed:', error);
-          }
-        }
-      }
-      
-      // Try to copy to clipboard (desktop or fallback for mobile)
+      // Always copy to clipboard for all viewports
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(shareUrl);
@@ -964,6 +943,7 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
         }
       } catch (fallbackError) {
         console.error('Fallback copy failed:', fallbackError);
+        alert('Failed to copy link. Please try again.');
       }
     } catch (error) {
       console.error('Error sharing sequence:', error);

@@ -877,7 +877,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
               <CardTitle>Sequences</CardTitle>
             </div>
             <CardDescription>
-              Published yoga sequences
+              Published sequences
             </CardDescription>
           </CardHeader>
           <CardContent className={isMobile && isViewerMode ? 'px-4 pt-3 pb-4' : isMobile ? 'pt-3' : ''}>

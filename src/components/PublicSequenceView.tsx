@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
-import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, User, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, Image as ImageIcon, Eye, EyeOff, GraduationCap, Share2, Check } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration, flattenSequenceToTimeline, parseDuration, TimelineItem } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
@@ -9,13 +9,22 @@ import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useAuth } from '../lib/auth';
 import { userProfileService } from '../lib/userProfileService';
-import type { Sequence as DBSequence } from '../lib/supabase';
+import { sequenceService } from '../lib/supabaseService';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;
   poses: Pose[];
   variations: PoseVariation[];
-  sequenceUserId?: string; // Optional user_id from database sequence
+  sequenceUserId?: string | null;
+  isPublished?: boolean | null;
 }
 
 // Storage key for persisting timer state
@@ -30,34 +39,21 @@ interface TimerState {
   playbackSpeed: number;
 }
 
-export function PublicSequenceView({ sequence, poses, variations, sequenceUserId }: PublicSequenceViewProps) {
+export function PublicSequenceView({ sequence, poses, variations, sequenceUserId, isPublished }: PublicSequenceViewProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const [instructorShareId, setInstructorShareId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const { user } = useAuth();
-  const [profileName, setProfileName] = useState<string | null>(null);
-  const [profileShareId, setProfileShareId] = useState<string | null>(null);
   
-  useEffect(() => {
-    const loadProfileInfo = async () => {
-      // Use sequenceUserId prop if available, otherwise try to get from sequence
-      const userId = sequenceUserId || (sequence as unknown as DBSequence).user_id;
-      if (userId) {
-        try {
-          const profile = await userProfileService.getByUserId(userId);
-          if (profile) {
-            if (profile.name) {
-              setProfileName(profile.name);
-            }
-            // Get shareId for profile link (use share_id if available, otherwise user_id)
-            setProfileShareId(profile.share_id || userId);
-          }
-        } catch (error) {
-          console.error('Error loading profile info:', error);
-        }
-      }
-    };
-    loadProfileInfo();
-  }, [sequence, sequenceUserId]);
+  // Check if user is the owner
+  const isOwner = user && sequenceUserId === user.id;
+  
+  // Only allow sharing if sequence is published (explicitly true)
+  // Hide button if isPublished is false, null, or undefined
+  const canShare = isPublished === true;
   
   // Always start fresh - reset timer state on page refresh
   const [initialState] = useState<Partial<TimerState>>(() => {
@@ -105,6 +101,28 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
     }
   }, []);
   
+  // Load instructor's shareId for profile link
+  useEffect(() => {
+    if (sequenceUserId) {
+      const loadShareId = async () => {
+        try {
+          const profile = await userProfileService.getByUserId(sequenceUserId);
+          if (profile?.share_id) {
+            setInstructorShareId(profile.share_id);
+          } else {
+            // Default to userId if no shareId set
+            setInstructorShareId(sequenceUserId);
+          }
+        } catch (error) {
+          console.error('Error loading instructor shareId:', error);
+          // Fallback to userId
+          setInstructorShareId(sequenceUserId);
+        }
+      };
+      loadShareId();
+    }
+  }, [sequenceUserId]);
+
   // Keep ref in sync with state
   useEffect(() => {
     activeItemIdRef.current = activeItemId;
@@ -866,6 +884,150 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
     );
   };
 
+  const handleShare = async (e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (!sequence) return;
+    
+    // Prevent focus from staying on the button
+    if (e?.currentTarget) {
+      e.currentTarget.blur();
+    }
+    
+    // If not published and user is owner, show publish dialog
+    if (!canShare && isOwner) {
+      setShowPublishDialog(true);
+      return;
+    }
+    
+    // If not published and not owner, don't allow sharing
+    if (!canShare) {
+      return;
+    }
+    
+    try {
+      // Use sequence UUID directly for sharing
+      const shareUrl = `${window.location.origin}/sequence/${sequence.id}`;
+      
+      // Detect mobile/tablet devices
+      const isMobileDevice = isMobile || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                              (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+      
+      // Use Web Share API on mobile/tablet if available
+      if (isMobileDevice && navigator.share) {
+        try {
+          await navigator.share({
+            title: sequence.name,
+            text: `Check out this yoga sequence: ${sequence.name}`,
+            url: shareUrl,
+          });
+          return;
+        } catch (error: any) {
+          // User cancelled or share failed, fall through to clipboard
+          if (error.name !== 'AbortError') {
+            console.error('Web Share API failed:', error);
+          }
+        }
+      }
+      
+      // Try to copy to clipboard (desktop or fallback for mobile)
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+          return;
+        }
+      } catch (error) {
+        console.error('Clipboard API failed:', error);
+      }
+      
+      // Fallback for older browsers
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '0';
+        textArea.style.top = '0';
+        textArea.style.width = '2em';
+        textArea.style.height = '2em';
+        textArea.style.padding = '0';
+        textArea.style.border = 'none';
+        textArea.style.outline = 'none';
+        textArea.style.opacity = '0';
+        textArea.setAttribute('readonly', '');
+        document.body.appendChild(textArea);
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } catch (fallbackError) {
+        console.error('Fallback copy failed:', fallbackError);
+      }
+    } catch (error) {
+      console.error('Error sharing sequence:', error);
+      alert('Failed to share sequence. Please try again.');
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!sequence || !user || !sequenceUserId || sequenceUserId !== user.id) {
+      return;
+    }
+    
+    try {
+      setPublishing(true);
+      await sequenceService.update(sequence.id, { published_to_profile: true }, user.id);
+      
+      // Copy share link to clipboard
+      const shareUrl = `${window.location.origin}/sequence/${sequence.id}`;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 3000);
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = shareUrl;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '0';
+          textArea.style.top = '0';
+          textArea.style.width = '2em';
+          textArea.style.height = '2em';
+          textArea.style.padding = '0';
+          textArea.style.border = 'none';
+          textArea.style.outline = 'none';
+          textArea.style.opacity = '0';
+          textArea.setAttribute('readonly', '');
+          document.body.appendChild(textArea);
+          textArea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          if (successful) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 3000);
+          }
+        }
+      } catch (clipboardError) {
+        console.error('Failed to copy link:', clipboardError);
+        // Continue even if clipboard copy fails
+      }
+      
+      setShowPublishDialog(false);
+      // Delay reload slightly so user can see the "Copied!" confirmation
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (error) {
+      console.error('Error publishing sequence:', error);
+      alert('Failed to publish sequence. Please try again.');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const totalDuration = calculateSequenceDuration(sequence);
   const progress = totalDuration > 0 ? Math.min(100, Math.max(0, (currentTime / totalDuration) * 100)) : 0;
   const displayTime = Math.floor(currentTime);
@@ -1000,37 +1162,35 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
       >
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-6 relative min-h-[48px]">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/')}
-              title="Go to home"
-            >
-              <Home className="h-4 w-4 mr-2" />
-              Home
-            </Button>
-            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold absolute left-0 right-0 text-center px-4 pointer-events-none z-0`}>{sequence.name}</h1>
-            {profileShareId ? (
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/')}
+                className="h-8 w-8"
+              >
+                <Home className="h-4 w-4" />
+              </Button>
+              <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
+            </div>
+            {instructorShareId && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  const userId = sequenceUserId || (sequence as unknown as DBSequence).user_id;
-                  // If viewing own sequence, go to own profile edit page, otherwise go to their public profile
-                  if (user && userId === user.id) {
+                  // If it's the current user's sequence, go to their profile edit page
+                  // Otherwise go to public profile
+                  if (user && sequenceUserId === user.id) {
                     navigate('/profile');
                   } else {
-                    navigate(`/profile/${profileShareId}`);
+                    navigate(`/profile/${instructorShareId}`);
                   }
                 }}
-                title={user && sequenceUserId === user.id ? "Go to your profile" : `Go to ${profileName || 'profile'}`}
+                title="Instructor Profile"
               >
-                <User className="h-4 w-4 mr-2" />
-                Instructor
+                <GraduationCap className="h-4 w-4" />
               </Button>
-            ) : (
-              <div className="w-[140px]"></div> // Spacer to keep title centered when button is missing
             )}
           </div>
 
@@ -1043,16 +1203,37 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
                 <strong>{formatDuration(totalDuration)}</strong>
               </span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportSequenceToHTML(sequence)}
-              className={isMobile ? 'h-8 px-2' : ''}
-              title="Export as printable HTML"
-            >
-              <Download className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} />
-              {!isMobile && 'Export'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => handleShare(e)}
+                className={isMobile ? 'h-8 px-2' : ''}
+                title={canShare ? "Share sequence" : isOwner ? "Click to publish and share" : "Sequence must be published to share"}
+              >
+                {copied ? (
+                  <>
+                    <Check className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} />
+                    {!isMobile && 'Copied!'}
+                  </>
+                ) : (
+                  <>
+                    <Share2 className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} />
+                    {!isMobile && 'Share'}
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportSequenceToHTML(sequence)}
+                className={isMobile ? 'h-8 px-2' : ''}
+                title="Export as printable HTML"
+              >
+                <Download className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} />
+                {!isMobile && 'Export'}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1105,21 +1286,22 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
           bottom: 0,
           left: 0,
           right: 0,
-          zIndex: 9999,
+          zIndex: 40, // Lower z-index so dialogs can appear above
           backgroundColor: 'hsl(var(--card))',
           backdropFilter: 'blur(8px)',
           borderTop: '1px solid hsl(var(--border))',
           boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
-          padding: isMobile ? '12px' : '16px'
+          padding: isMobile ? '12px' : '16px',
         }}
       >
-        <div style={{ maxWidth: '672px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '672px', margin: '0 auto', pointerEvents: showPublishDialog ? 'none' : 'auto', opacity: showPublishDialog ? 0.3 : 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
             <Button
               variant={isPlaying ? "default" : "outline"}
               size="sm"
               onClick={handlePlayPause}
-              disabled={sequence.sections.length === 0}
+              disabled={sequence.sections.length === 0 || showPublishDialog}
+              tabIndex={showPublishDialog ? -1 : 0}
             >
               {isPlaying ? (
                 <>
@@ -1137,14 +1319,16 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
               variant="outline"
               size="sm"
               onClick={handleReset}
+              disabled={showPublishDialog}
+              tabIndex={showPublishDialog ? -1 : 0}
             >
               <RotateCcw className="h-4 w-4 mr-2" />
               Reset
             </Button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Gauge className="h-4 w-4 text-muted-foreground" />
-              <Select value={playbackSpeed.toString()} onValueChange={handleSpeedChange}>
-                <SelectTrigger className="w-20 h-8 text-xs">
+              <Select value={playbackSpeed.toString()} onValueChange={handleSpeedChange} disabled={showPublishDialog}>
+                <SelectTrigger className="w-20 h-8 text-xs" tabIndex={showPublishDialog ? -1 : 0}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1175,6 +1359,65 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
           </div>
         </div>
       </div>
+      
+      {/* Publish Dialog */}
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog} modal={true}>
+        <DialogContent 
+          onOpenAutoFocus={(e) => {
+            // Prevent auto-focus to avoid highlighting other elements
+            e.preventDefault();
+            // Explicitly focus the publish button after a short delay
+            setTimeout(() => {
+              const publishButton = document.querySelector('[data-publish-button]') as HTMLButtonElement;
+              if (publishButton) {
+                publishButton.focus();
+              }
+            }, 0);
+          }}
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking outside if publishing
+            if (publishing) {
+              e.preventDefault();
+            }
+          }}
+          onPointerDownOutside={(e) => {
+            // Prevent interactions with elements behind the dialog
+            if (publishing) {
+              e.preventDefault();
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            // Prevent escape if publishing
+            if (publishing) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Publish Sequence to Share</DialogTitle>
+            <DialogDescription>
+              To share this sequence, you need to publish it to your profile. Published sequences will be visible on your public profile page.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPublishDialog(false)}
+              disabled={publishing}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePublish}
+              disabled={publishing}
+              data-publish-button
+              autoFocus
+            >
+              {publishing ? 'Publishing...' : 'Publish & Share'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -70,15 +70,11 @@ export function PoseLibrary({
   const [selectedPoseForDetails, setSelectedPoseForDetails] = useState<string | null>(null);
   const [hoveredVariationId, setHoveredVariationId] = useState<string | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  // Table view disabled for now - always use grid view
+  const viewMode = 'grid' as const;
   const fileInputRef = useRef<{ [key: string]: HTMLInputElement | null }>({});
   
-  // Force grid view on mobile
-  useEffect(() => {
-    if (isMobile && viewMode === 'table') {
-      setViewMode('grid');
-    }
-  }, [isMobile, viewMode]);
+  // Table view disabled - grid view always used
   
   // Excel-like inline editing state
   const [pendingChanges, setPendingChanges] = useState<{
@@ -119,7 +115,8 @@ export function PoseLibrary({
   }, [hasUnsavedChanges]);
 
   const handleCellClick = (type: 'pose' | 'variation' | 'cue' | 'breath', id: string, currentValue: string, cueNum?: 1 | 2 | 3) => {
-    if (viewMode !== 'table') return;
+    // Table view disabled - this function is not used
+    return;
     
     // Check permissions before allowing edits
     if (type === 'pose') {
@@ -726,11 +723,12 @@ export function PoseLibrary({
   }
 
   return (
-    <div className={`${isMobile ? 'p-0' : 'p-4'} ${viewMode === 'table' ? 'flex flex-col h-[calc(100vh-200px)] overflow-hidden' : 'space-y-4'}`}>
-      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'} ${viewMode === 'table' ? 'flex-shrink-0 mb-4' : ''}`}>
+    <div className={`${isMobile ? 'p-0' : 'p-4'} space-y-4`}>
+      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
         <h2 className={`${isMobile ? 'text-lg font-semibold' : 'text-xl font-semibold'}`}>Pose Library</h2>
         <div className="flex items-center gap-2">
-          {!isMobile && (
+          {/* Table view toggle disabled for now */}
+          {/* {!isMobile && (
             <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && handleViewModeChange(value)}>
               <ToggleGroupItem value="grid" aria-label="Grid view">
                 <Grid3x3 className="h-4 w-4" />
@@ -750,7 +748,7 @@ export function PoseLibrary({
               <Save className="h-4 w-4 mr-2" />
               Save Changes ({pendingChanges.poses.size + pendingChanges.variations.size})
             </Button>
-          )}
+          )} */}
           <Dialog open={isAddPoseOpen} onOpenChange={setIsAddPoseOpen}>
             <DialogTrigger asChild>
               <Button 
@@ -789,7 +787,7 @@ export function PoseLibrary({
         </div>
       </div>
 
-      <div className={`relative ${viewMode === 'table' ? 'flex-shrink-0 mb-4' : ''}`}>
+      <div className="relative">
         <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
         <Input
           placeholder="Search poses and variations..."
@@ -800,8 +798,7 @@ export function PoseLibrary({
       </div>
 
       {/* Grid of pose cards */}
-      {viewMode === 'grid' || isMobile ? (
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} gap-4`}>
+      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} gap-4`}>
         {filteredPoses.map(pose => {
           const poseVariations = getVariationsForPose(pose.id);
           const defaultVariation = getDefaultVariation(pose.id);
@@ -1366,300 +1363,7 @@ export function PoseLibrary({
           );
         })}
       </div>
-      ) : (
-        /* Table view - Spreadsheet style */
-        <div className="flex-1 min-h-0 border rounded-lg overflow-hidden flex flex-col">
-          <div className="overflow-x-auto overflow-y-auto flex-1" style={{ minWidth: 0 }}>
-          <Table style={{ minWidth: '1000px', width: 'max-content' }}>
-            <TableHeader>
-              <TableRow className="border-b-2">
-                <TableHead className="w-[200px] font-semibold border-r bg-muted/50">Pose</TableHead>
-                <TableHead className="w-[200px] font-semibold border-r bg-muted/50">Variation</TableHead>
-                {/* Cues section disabled for now */}
-                {/* <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Cue 1</TableHead>
-                <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Cue 2</TableHead>
-                <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Cue 3</TableHead>
-                <TableHead className="w-[150px] font-semibold border-r bg-muted/50">Breath / Transition</TableHead> */}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPoses.flatMap(pose => {
-                const poseVariations = getVariationsForPose(pose.id);
-                const defaultVariation = getDefaultVariation(pose.id);
-                const posePendingName = pendingChanges.poses.get(pose.id);
-                const displayPoseName = posePendingName || pose.name;
-                const isEditingPose = editingCell?.type === 'pose' && editingCell.id === pose.id;
-                
-                if (poseVariations.length === 0) {
-                  return (
-                    <TableRow key={pose.id} className={`border-b hover:bg-muted/30 ${isOwnedByUser(pose) ? 'bg-primary/5' : ''}`}>
-                      <TableCell 
-                        className={`font-medium border-r align-middle cursor-text ${
-                          isEditingPose 
-                            ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
-                            : posePendingName 
-                              ? 'bg-primary/5 border-primary/30' 
-                              : ''
-                        }`}
-                        onClick={() => handleCellClick('pose', pose.id, displayPoseName)}
-                      >
-                        {isEditingPose ? (
-                          <Input
-                            value={editingCellValue}
-                            onChange={(e) => setEditingCellValue(e.target.value)}
-                            onBlur={handleCellBlur}
-                            onKeyDown={handleCellKeyDown}
-                            className="h-7 text-sm font-medium border-primary/50 focus-visible:ring-primary"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {posePendingName && (
-                              <Pencil className="h-3 w-3 text-primary" />
-                            )}
-                            <span className={posePendingName ? 'text-primary' : ''}>
-                              {displayPoseName}
-                            </span>
-                            {isOwnedByUser(pose) && (
-                              <Badge variant="outline" className="text-xs border-primary/50 text-primary flex items-center justify-center p-1">
-                                <User className="h-3 w-3" />
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground italic">No variations</TableCell>
-                      {/* Cues section disabled for now */}
-                      {/* <TableCell className="border-r">-</TableCell>
-                      <TableCell className="border-r">-</TableCell>
-                      <TableCell className="border-r">-</TableCell>
-                      <TableCell className="border-r">-</TableCell> */}
-                    </TableRow>
-                  );
-                }
-                
-                return poseVariations.map((variation, idx) => {
-                  const variationPendingName = pendingChanges.variations.get(variation.id);
-                  const displayVariationName = variationPendingName || variation.name;
-                  const isEditingVariation = editingCell?.type === 'variation' && editingCell.id === variation.id;
-                  
-                  const cueChanges = pendingChanges.cues.get(variation.id);
-                  const displayCue1 = cueChanges?.cue1 !== undefined ? cueChanges.cue1 : (variation.cue1 ?? '');
-                  const displayCue2 = cueChanges?.cue2 !== undefined ? cueChanges.cue2 : (variation.cue2 ?? '');
-                  const displayCue3 = cueChanges?.cue3 !== undefined ? cueChanges.cue3 : (variation.cue3 ?? '');
-                  const displayBreathTransition = cueChanges?.breathTransition !== undefined ? cueChanges.breathTransition : (variation.breathTransition ?? '');
-                  const isEditingCue1 = editingCell?.type === 'cue' && editingCell.id === variation.id && editingCell.cueNum === 1;
-                  const isEditingCue2 = editingCell?.type === 'cue' && editingCell.id === variation.id && editingCell.cueNum === 2;
-                  const isEditingCue3 = editingCell?.type === 'cue' && editingCell.id === variation.id && editingCell.cueNum === 3;
-                  const isEditingBreath = editingCell?.type === 'breath' && editingCell.id === variation.id;
-                  const hasCue1Change = cueChanges?.cue1 !== undefined;
-                  const hasCue2Change = cueChanges?.cue2 !== undefined;
-                  const hasCue3Change = cueChanges?.cue3 !== undefined;
-                  const hasBreathChange = cueChanges?.breathTransition !== undefined;
-                  
-                  return (
-                    <TableRow 
-                      key={`${pose.id}-${variation.id}`} 
-                      className={`border-b hover:bg-muted/30 ${isOwnedByUser(pose) ? 'bg-primary/5' : ''}`}
-                    >
-                      {idx === 0 && (
-                        <TableCell 
-                          className={`font-medium border-r align-middle cursor-text ${
-                            isEditingPose 
-                              ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
-                              : posePendingName 
-                                ? 'bg-primary/5 border-primary/30' 
-                                : ''
-                          }`}
-                          rowSpan={poseVariations.length}
-                          onClick={() => handleCellClick('pose', pose.id, displayPoseName)}
-                        >
-                          {isEditingPose ? (
-                            <Input
-                              value={editingCellValue}
-                              onChange={(e) => setEditingCellValue(e.target.value)}
-                              onBlur={handleCellBlur}
-                              onKeyDown={handleCellKeyDown}
-                              className="h-7 text-sm font-medium border-primary/50 focus-visible:ring-primary"
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {posePendingName && (
-                                <Pencil className="h-3 w-3 text-primary" />
-                              )}
-                              <span className={posePendingName ? 'text-primary' : ''}>
-                                {displayPoseName}
-                              </span>
-                              {isOwnedByUser(pose) && (
-                                <Badge variant="outline" className="text-xs border-primary/50 text-primary flex items-center justify-center p-1">
-                                  <User className="h-3 w-3" />
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                      )}
-                      <TableCell 
-                        className={`border-r cursor-text ${
-                          isEditingVariation 
-                            ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
-                            : variationPendingName 
-                              ? 'bg-primary/5 border-primary/30' 
-                              : ''
-                        }`}
-                        onClick={() => handleCellClick('variation', variation.id, displayVariationName)}
-                      >
-                        {isEditingVariation ? (
-                          <Input
-                            value={editingCellValue}
-                            onChange={(e) => setEditingCellValue(e.target.value)}
-                            onBlur={handleCellBlur}
-                            onKeyDown={handleCellKeyDown}
-                            className={`h-7 text-sm ${variation.isDefault ? 'font-semibold' : ''} border-primary/50 focus-visible:ring-primary`}
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            {variationPendingName && (
-                              <Pencil className="h-3 w-3 text-primary flex-shrink-0" />
-                            )}
-                            <span className={`text-sm ${variation.isDefault ? 'font-semibold' : ''} ${variationPendingName ? 'text-primary' : ''}`}>
-                              {displayVariationName}
-                            </span>
-                          </div>
-                        )}
-                      </TableCell>
-                      {/* Cues section disabled for now */}
-                      {/* <TableCell 
-                        className={`border-r cursor-text ${
-                          isEditingCue1 
-                            ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
-                            : hasCue1Change 
-                              ? 'bg-primary/5 border-primary/30' 
-                              : ''
-                        }`}
-                        onClick={() => handleCellClick('cue', variation.id, displayCue1, 1)}
-                      >
-                        {isEditingCue1 ? (
-                          <Input
-                            value={editingCellValue ?? ''}
-                            onChange={(e) => setEditingCellValue(e.target.value)}
-                            onBlur={handleCellBlur}
-                            onKeyDown={handleCellKeyDown}
-                            className="h-7 text-sm border-primary/50 focus-visible:ring-primary"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            {hasCue1Change && (
-                              <Pencil className="h-3 w-3 text-primary flex-shrink-0" />
-                            )}
-                            <span className={`text-sm ${hasCue1Change ? 'text-primary' : ''}`}>
-                              {displayCue1 && displayCue1.trim() ? displayCue1 : '-'}
-                            </span>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell 
-                        className={`border-r cursor-text ${
-                          isEditingCue2 
-                            ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
-                            : hasCue2Change 
-                              ? 'bg-primary/5 border-primary/30' 
-                              : ''
-                        }`}
-                        onClick={() => handleCellClick('cue', variation.id, displayCue2, 2)}
-                      >
-                        {isEditingCue2 ? (
-                          <Input
-                            value={editingCellValue ?? ''}
-                            onChange={(e) => setEditingCellValue(e.target.value)}
-                            onBlur={handleCellBlur}
-                            onKeyDown={handleCellKeyDown}
-                            className="h-7 text-sm border-primary/50 focus-visible:ring-primary"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            {hasCue2Change && (
-                              <Pencil className="h-3 w-3 text-primary flex-shrink-0" />
-                            )}
-                            <span className={`text-sm ${hasCue2Change ? 'text-primary' : ''}`}>
-                              {displayCue2 && displayCue2.trim() ? displayCue2 : '-'}
-                            </span>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell 
-                        className={`border-r cursor-text ${
-                          isEditingCue3 
-                            ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
-                            : hasCue3Change 
-                              ? 'bg-primary/5 border-primary/30' 
-                              : ''
-                        }`}
-                        onClick={() => handleCellClick('cue', variation.id, displayCue3, 3)}
-                      >
-                        {isEditingCue3 ? (
-                          <Input
-                            value={editingCellValue ?? ''}
-                            onChange={(e) => setEditingCellValue(e.target.value)}
-                            onBlur={handleCellBlur}
-                            onKeyDown={handleCellKeyDown}
-                            className="h-7 text-sm border-primary/50 focus-visible:ring-primary"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            {hasCue3Change && (
-                              <Pencil className="h-3 w-3 text-primary flex-shrink-0" />
-                            )}
-                            <span className={`text-sm ${hasCue3Change ? 'text-primary' : ''}`}>
-                              {displayCue3 && displayCue3.trim() ? displayCue3 : '-'}
-                            </span>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell 
-                        className={`border-r cursor-text ${
-                          isEditingBreath 
-                            ? 'bg-primary/10 border-primary/50 ring-2 ring-primary/20' 
-                            : hasBreathChange 
-                              ? 'bg-primary/5 border-primary/30' 
-                              : ''
-                        }`}
-                        onClick={() => handleCellClick('breath', variation.id, displayBreathTransition)}
-                      >
-                        {isEditingBreath ? (
-                          <Input
-                            value={editingCellValue ?? ''}
-                            onChange={(e) => setEditingCellValue(e.target.value)}
-                            onBlur={handleCellBlur}
-                            onKeyDown={handleCellKeyDown}
-                            className="h-7 text-sm border-primary/50 focus-visible:ring-primary"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            {hasBreathChange && (
-                              <Pencil className="h-3 w-3 text-primary flex-shrink-0" />
-                            )}
-                            <span className={`text-sm ${hasBreathChange ? 'text-primary' : ''}`}>
-                              {displayBreathTransition && displayBreathTransition.trim() ? displayBreathTransition : '-'}
-                            </span>
-                          </div>
-                        )}
-                      </TableCell> */}
-                    </TableRow>
-                  );
-                });
-              })}
-            </TableBody>
-          </Table>
-          </div>
-        </div>
-      )}
+      {/* Table view disabled for now */}
 
       {/* Unsaved changes warning dialog */}
       <AlertDialog open={showUnsavedWarning} onOpenChange={(open) => {

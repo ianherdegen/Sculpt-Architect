@@ -1010,7 +1010,7 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
               <Home className="h-4 w-4 mr-2" />
               Home
             </Button>
-            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold absolute left-1/2 -translate-x-1/2 px-4 max-w-[calc(100%-280px)] truncate pointer-events-none z-0`}>{sequence.name}</h1>
+            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold absolute left-0 right-0 text-center px-4 pointer-events-none z-0`}>{sequence.name}</h1>
             {profileShareId ? (
               <Button
                 variant="ghost"

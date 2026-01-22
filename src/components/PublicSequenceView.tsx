@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
-import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, User, ChevronLeft, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, User, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration, flattenSequenceToTimeline, parseDuration, TimelineItem } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
@@ -1035,7 +1035,7 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                 className="h-8 w-8"
                 title={user ? "Go to your profile" : "Go to home"}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <User className="h-4 w-4" />
               </Button>
               {profileName && (
                 <span className="text-sm font-medium">{profileName}</span>

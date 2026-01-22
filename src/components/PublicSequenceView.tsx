@@ -998,8 +998,8 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
       >
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+          <div className="space-y-3 mb-4">
+            <div className="flex items-center gap-3 flex-wrap">
               <Button
                 variant="ghost"
                 size="sm"
@@ -1031,8 +1031,8 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
               {profileName && (
                 <span className="text-sm font-medium">{profileName}</span>
               )}
-              <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
             </div>
+            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
           </div>
 
         {/* Sequence Header */}

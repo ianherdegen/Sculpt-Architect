@@ -25,6 +25,7 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
       shareId: dbProfile.share_id || undefined,
       venmoUsername: dbProfile.venmo_username || undefined,
       profilePhotoUrl: dbProfile.profile_photo_url || undefined,
+      spotifyPlaylistUrls: dbProfile.spotify_playlist_urls || [],
     };
   };
 

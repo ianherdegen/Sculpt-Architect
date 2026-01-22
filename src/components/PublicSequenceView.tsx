@@ -1001,7 +1001,7 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
           <div className="space-y-3 mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
                 size="sm"

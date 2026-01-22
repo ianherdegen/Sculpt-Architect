@@ -1030,9 +1030,6 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
                   Instructor Profile
                 </Button>
               )}
-              {profileName && (
-                <span className="text-sm font-medium">{profileName}</span>
-              )}
             </div>
             <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
           </div>

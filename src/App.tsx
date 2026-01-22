@@ -270,11 +270,18 @@ function PublicProfileRoute() {
               <h1 className="text-xl font-light tracking-widest uppercase">SCULPT ARCHITECT</h1>
             </div>
           </div>
-          <div className="absolute left-4 top-1/2 -translate-y-1/2">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} title="Back">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Only show back button if user came from same origin (not a direct link) */}
+          {(() => {
+            const referrer = document.referrer;
+            const hasReferrer = referrer && new URL(referrer).origin === window.location.origin;
+            return hasReferrer && (
+              <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                <Button variant="ghost" size="sm" onClick={() => navigate(-1)} title="Back">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              </div>
+            );
+          })()}
         </div>
       </header>
       <div className="container max-w-2xl mx-auto px-4 sm:px-6">

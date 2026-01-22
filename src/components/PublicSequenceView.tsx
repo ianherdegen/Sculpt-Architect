@@ -973,15 +973,22 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(-1)}
-                className="h-8 w-8"
-                title="Back"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+              {/* Only show back button if user came from same origin (not a direct link) */}
+              {(() => {
+                const referrer = document.referrer;
+                const hasReferrer = referrer && new URL(referrer).origin === window.location.origin;
+                return hasReferrer && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate(-1)}
+                    className="h-8 w-8"
+                    title="Back"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                );
+              })()}
               <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
             </div>
           </div>

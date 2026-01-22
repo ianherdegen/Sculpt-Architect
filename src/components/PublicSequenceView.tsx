@@ -976,8 +976,9 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/')}
+                onClick={() => navigate(-1)}
                 className="h-8 w-8"
+                title="Back"
               >
                 <Home className="h-4 w-4" />
               </Button>

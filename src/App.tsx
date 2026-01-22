@@ -3,7 +3,6 @@ import { Routes, Route, Link, useLocation, Navigate, useParams } from 'react-rou
 import { PoseLibrary } from './components/PoseLibrary';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
-import { SequenceView } from './components/SequenceView';
 import { PublicSequenceView } from './components/PublicSequenceView';
 import { AuthPage } from './components/AuthPage';
 import { Profile } from './components/Profile';
@@ -13,7 +12,7 @@ import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
-import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart, ChevronLeft } from 'lucide-react';
+import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { useIsMobile } from './components/ui/use-mobile';
@@ -172,12 +171,21 @@ function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<v
   );
 }
 
+function SequenceLibraryRedirect() {
+  const { sequenceId } = useParams<{ sequenceId: string }>();
+  return <Navigate to={`/sequence/${sequenceId}`} replace />;
+}
+
 function PublicSequenceRoute() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [sequence, setSequence] = useState<Sequence | null>(null);
+  const [sequenceUserId, setSequenceUserId] = useState<string | null>(null);
+  const [isPublished, setIsPublished] = useState<boolean | null>(null);
   const [poses, setPoses] = useState<Pose[]>([]);
   const [variations, setVariations] = useState<PoseVariation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   // Convert database sequence to app sequence format
   const convertDBSequenceToApp = (dbSequence: DBSequence): Sequence => {
@@ -188,26 +196,44 @@ function PublicSequenceRoute() {
     };
   };
 
-  const [dbSequence, setDbSequence] = useState<DBSequence | null>(null);
-
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
+        setAccessDenied(false);
         
         // Load sequence by UUID (public access)
         if (id) {
           const loadedSequence = await sequenceService.getByIdPublic(id);
           if (!loadedSequence) {
             setSequence(null);
-            setDbSequence(null);
+            setSequenceUserId(null);
+            setIsPublished(null);
+            setAccessDenied(true);
             setLoading(false);
             return;
           }
-          // Store the full DB sequence for user_id access
-          setDbSequence(loadedSequence);
+          
+          // Check if user has access:
+          // - If user is the owner, they can always view
+          // - Otherwise, sequence must be published
+          const isOwner = user && loadedSequence.user_id === user.id;
+          const isPublishedSequence = loadedSequence.published_to_profile === true;
+          
+          if (!isOwner && !isPublishedSequence) {
+            setSequence(null);
+            setSequenceUserId(null);
+            setIsPublished(false);
+            setAccessDenied(true);
+            setLoading(false);
+            return;
+          }
+          
           // Convert to app format
           setSequence(convertDBSequenceToApp(loadedSequence));
+          // Store user_id for profile link
+          setSequenceUserId(loadedSequence.user_id);
+          setIsPublished(isPublishedSequence);
         }
         
         // Load poses and variations (public access)
@@ -221,7 +247,9 @@ function PublicSequenceRoute() {
       } catch (error) {
         console.error('Error loading public sequence:', error);
         setSequence(null);
-        setDbSequence(null);
+        setSequenceUserId(null);
+        setIsPublished(null);
+        setAccessDenied(true);
       } finally {
         setLoading(false);
       }
@@ -230,7 +258,7 @@ function PublicSequenceRoute() {
     if (id) {
       loadData();
     }
-  }, [id]);
+  }, [id, user]);
 
   if (loading) {
     return (
@@ -247,7 +275,11 @@ function PublicSequenceRoute() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Sequence not found</p>
+          <p className="text-muted-foreground mb-4">
+            {accessDenied && !loading 
+              ? "Sequence not found or not published" 
+              : "Sequence not found"}
+          </p>
           <Button onClick={() => window.location.href = '/'}>Go to Home</Button>
         </div>
       </div>
@@ -259,7 +291,8 @@ function PublicSequenceRoute() {
       sequence={sequence}
       poses={poses}
       variations={variations}
-      sequenceUserId={dbSequence?.user_id}
+      sequenceUserId={sequenceUserId}
+      isPublished={isPublished}
     />
   );
 }
@@ -836,27 +869,7 @@ export default function App() {
       />
       <Route
         path="/sequence-library/:sequenceId"
-        element={
-          !user ? (
-            <Navigate to="/" replace />
-          ) : (
-            <AppLayout>
-              {loading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading...</p>
-                </div>
-              ) : (
-                <SequenceView
-                  sequences={sequences}
-                  poses={poses}
-                  variations={variations}
-                  onUpdateSequence={handleUpdateSequence}
-                />
-              )}
-            </AppLayout>
-          )
-        }
+        element={<SequenceLibraryRedirect />}
       />
       <Route
         path="/pose-library"

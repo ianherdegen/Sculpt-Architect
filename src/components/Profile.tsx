@@ -864,6 +864,23 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
         </CardContent>
       </Card>
 
+      {/* Note about published sequences (only on user's own profile) */}
+      {!isViewerMode && (
+        <Card>
+          <CardContent className={`${isMobile ? 'pt-6 pb-4' : 'p-6'}`}>
+            <div className="flex items-start gap-3">
+              <List className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Published Sequences</p>
+                <p className="text-sm text-muted-foreground">
+                  Sequences you publish using the globe icon in Sequence Library will appear on your public profile page for others to view.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Published Sequences - Only show in viewer mode (public profiles) */}
       {isViewerMode && (
         <Card>

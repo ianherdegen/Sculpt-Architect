@@ -14,7 +14,7 @@ import { poseService, poseVariationService, sequenceService } from './lib/supaba
 import { userProfileService } from './lib/userProfileService';
 import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
-import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart } from 'lucide-react';
+import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart, ChevronLeft } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { useIsMobile } from './components/ui/use-mobile';
@@ -261,6 +261,7 @@ function PublicSequenceRoute() {
 function PublicProfileRoute() {
   const { shareId } = useParams<{ shareId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [profileName, setProfileName] = useState<string | null>(null);
   
   useEffect(() => {
@@ -290,6 +291,9 @@ function PublicProfileRoute() {
           <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate('/')} title="Go to home">
               <Home className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(user ? '/profile' : '/')} title={user ? "Go to your profile" : "Go to home"}>
+              <ChevronLeft className="h-4 w-4" />
             </Button>
             {profileName && (
               <span className="text-sm font-medium">{profileName}</span>

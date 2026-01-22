@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
-import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, ChevronLeft, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration, flattenSequenceToTimeline, parseDuration, TimelineItem } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { userProfileService } from '../lib/userProfileService';
+import { useAuth } from '../lib/auth';
 import type { Sequence as DBSequence } from '../lib/supabase';
 
 interface PublicSequenceViewProps {
@@ -31,6 +32,7 @@ interface TimerState {
 export function PublicSequenceView({ sequence, poses, variations }: PublicSequenceViewProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [profileName, setProfileName] = useState<string | null>(null);
   
   useEffect(() => {
@@ -1001,6 +1003,15 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
                 title="Go to home"
               >
                 <Home className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(user ? '/profile' : '/')}
+                className="h-8 w-8"
+                title={user ? "Go to your profile" : "Go to home"}
+              >
+                <ChevronLeft className="h-4 w-4" />
               </Button>
               {profileName && (
                 <span className="text-sm font-medium">{profileName}</span>

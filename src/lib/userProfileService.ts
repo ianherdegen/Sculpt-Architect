@@ -17,6 +17,7 @@ export interface UpdateUserProfileInput {
   share_id?: string | null
   venmo_username?: string | null
   profile_photo_url?: string | null
+  spotify_playlist_urls?: string[] | null
   is_banned?: boolean
 }
 
@@ -82,6 +83,7 @@ export const userProfileService = {
     if (input.share_id !== undefined) updateData.share_id = input.share_id || null
     if (input.venmo_username !== undefined) updateData.venmo_username = input.venmo_username || null
     if (input.profile_photo_url !== undefined) updateData.profile_photo_url = input.profile_photo_url || null
+    if (input.spotify_playlist_urls !== undefined) updateData.spotify_playlist_urls = input.spotify_playlist_urls || []
     if (input.is_banned !== undefined) updateData.is_banned = input.is_banned
 
     const { data, error } = await supabase

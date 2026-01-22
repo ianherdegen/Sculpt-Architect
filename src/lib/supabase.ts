@@ -73,6 +73,7 @@ export interface UserProfile {
   share_id?: string | null
   venmo_username?: string | null
   profile_photo_url?: string | null
+  spotify_playlist_urls?: string[] | null
   is_banned?: boolean
   permissions?: Record<string, boolean>
   created_at: string

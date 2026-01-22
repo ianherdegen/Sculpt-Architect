@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sequence, Pose, PoseVariation, GroupBlock, PoseInstance } from '../types';
-import { Clock, Download, Play, Pause, RotateCcw, Gauge, ChevronLeft, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Clock, Download, Play, Pause, RotateCcw, Gauge, Home, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration, calculateGroupBlockDuration, calculateSectionDuration, flattenSequenceToTimeline, parseDuration, TimelineItem } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useAuth } from '../lib/auth';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;
@@ -29,7 +28,6 @@ interface TimerState {
 
 export function PublicSequenceView({ sequence, poses, variations }: PublicSequenceViewProps) {
   const isMobile = useIsMobile();
-  const { user } = useAuth();
   const navigate = useNavigate();
   
   // Always start fresh - reset timer state on page refresh
@@ -978,11 +976,11 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(user ? '/profile' : '/')}
+                onClick={() => navigate('/')}
                 className="h-8 w-8"
-                title={user ? "Go to your profile" : "Go to home"}
+                title="Go to home"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <Home className="h-4 w-4" />
               </Button>
               <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
             </div>

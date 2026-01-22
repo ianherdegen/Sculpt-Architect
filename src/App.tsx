@@ -11,7 +11,6 @@ import { PublicProfile } from './components/PublicProfile';
 import { AdminPage } from './components/AdminPage';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
-import { userProfileService } from './lib/userProfileService';
 import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
 import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart, ChevronLeft } from 'lucide-react';
@@ -261,23 +260,6 @@ function PublicSequenceRoute() {
 function PublicProfileRoute() {
   const { shareId } = useParams<{ shareId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [profileName, setProfileName] = useState<string | null>(null);
-  
-  useEffect(() => {
-    const loadProfileName = async () => {
-      if (!shareId) return;
-      try {
-        const profile = await userProfileService.getByShareId(shareId);
-        if (profile && profile.name) {
-          setProfileName(profile.name);
-        }
-      } catch (error) {
-        console.error('Error loading profile name:', error);
-      }
-    };
-    loadProfileName();
-  }, [shareId]);
   
   return (
     <div className="min-h-screen bg-background">
@@ -288,16 +270,10 @@ function PublicProfileRoute() {
               <h1 className="text-xl font-light tracking-widest uppercase">SCULPT ARCHITECT</h1>
             </div>
           </div>
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')} title="Go to home">
-              <Home className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate(user ? '/profile' : '/')} title={user ? "Go to your profile" : "Go to home"}>
+          <div className="absolute left-4 top-1/2 -translate-y-1/2">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} title="Back">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            {profileName && (
-              <span className="text-sm font-medium">{profileName}</span>
-            )}
           </div>
         </div>
       </header>
@@ -766,7 +742,7 @@ export default function App() {
   const handleTogglePublish = async (sequenceId: string, published: boolean) => {
     if (!user) return;
     try {
-      await handleUpdateSequence(sequenceId, { published_to_profile: published } as Partial<Sequence>);
+      await handleUpdateSequence(sequenceId, { published_to_profile: published });
     } catch (error) {
       console.error('Error toggling publish status:', error);
       alert('Failed to update publish status. Please try again.');

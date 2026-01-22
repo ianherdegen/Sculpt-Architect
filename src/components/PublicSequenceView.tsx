@@ -1000,38 +1000,38 @@ export function PublicSequenceView({ sequence, poses, variations, sequenceUserId
       >
         <div className={`${isMobile ? 'py-4' : 'py-6'} space-y-4`}>
           {/* Header */}
-          <div className="space-y-3 mb-4">
-            <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4 relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/')}
+              title="Go to home"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Button>
+            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold absolute left-1/2 -translate-x-1/2`}>{sequence.name}</h1>
+            {profileShareId ? (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/')}
-                title="Go to home"
+                onClick={() => {
+                  const userId = sequenceUserId || (sequence as unknown as DBSequence).user_id;
+                  // If viewing own sequence, go to own profile edit page, otherwise go to their public profile
+                  if (user && userId === user.id) {
+                    navigate('/profile');
+                  } else {
+                    navigate(`/profile/${profileShareId}`);
+                  }
+                }}
+                title={user && sequenceUserId === user.id ? "Go to your profile" : `Go to ${profileName || 'profile'}`}
               >
-                <Home className="h-4 w-4 mr-2" />
-                Home
+                <User className="h-4 w-4 mr-2" />
+                Instructor Profile
               </Button>
-              {profileShareId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const userId = sequenceUserId || (sequence as unknown as DBSequence).user_id;
-                    // If viewing own sequence, go to own profile edit page, otherwise go to their public profile
-                    if (user && userId === user.id) {
-                      navigate('/profile');
-                    } else {
-                      navigate(`/profile/${profileShareId}`);
-                    }
-                  }}
-                  title={user && sequenceUserId === user.id ? "Go to your profile" : `Go to ${profileName || 'profile'}`}
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Instructor Profile
-                </Button>
-              )}
-            </div>
-            <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
+            ) : (
+              <div className="w-[140px]"></div> // Spacer to keep title centered when button is missing
+            )}
           </div>
 
         {/* Sequence Header */}

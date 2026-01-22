@@ -6,12 +6,15 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2 } from 'lucide-react';
+import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2, Clock, List } from 'lucide-react';
 import { ScheduleEditor } from './ScheduleEditor';
 import { userProfileService } from '../lib/userProfileService';
+import { sequenceService } from '../lib/supabaseService';
 import type { UserProfile as DBUserProfile } from '../lib/supabase';
+import type { Sequence } from '../lib/supabase';
 import { useIsMobile } from './ui/use-mobile';
 import { usePermission } from '../lib/usePermissions';
+import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
 
 export interface ClassEvent {
   id: string;
@@ -38,12 +41,13 @@ export interface UserProfile {
 interface ProfileProps {
   userEmail: string;
   userId?: string; // For generating shareable links
+  profileUserId?: string; // The actual user_id from database (for loading sequences)
   isViewerMode?: boolean;
   onSignOut?: () => void;
   initialProfile?: UserProfile; // For public profiles, pass the profile data
 }
 
-export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, initialProfile }: ProfileProps) {
+export function Profile({ userEmail, userId, profileUserId, isViewerMode = false, onSignOut, initialProfile }: ProfileProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { hasPermission: hasAdminAccess } = usePermission('admin');
@@ -66,6 +70,8 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [publishedSequences, setPublishedSequences] = useState<Sequence[]>([]);
+  const [loadingSequences, setLoadingSequences] = useState(false);
 
   // Convert DB UserProfile to local UserProfile format
   const dbToLocalProfile = (dbProfile: DBUserProfile): UserProfile => {
@@ -112,6 +118,29 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
       setEditedProfile(initialProfile);
     }
   }, [initialProfile]);
+
+  // Load published sequences when viewing a public profile or own profile
+  useEffect(() => {
+    // Use profileUserId if available (public profile), otherwise use userId (own profile)
+    const userIdToLoad = profileUserId || userId;
+    
+    if (userIdToLoad) {
+      const loadSequences = async () => {
+        try {
+          setLoadingSequences(true);
+          console.log('Loading sequences for user:', userIdToLoad, 'isViewerMode:', isViewerMode);
+          const sequences = await sequenceService.getPublishedByUserId(userIdToLoad);
+          console.log('Loaded sequences:', sequences);
+          setPublishedSequences(sequences);
+        } catch (error) {
+          console.error('Error loading published sequences:', error);
+        } finally {
+          setLoadingSequences(false);
+        }
+      };
+      loadSequences();
+    }
+  }, [isViewerMode, profileUserId, userId]);
 
   const handleEdit = () => {
     setEditedProfile(profile);
@@ -838,6 +867,63 @@ export function Profile({ userEmail, userId, isViewerMode = false, onSignOut, in
           )}
         </CardContent>
       </Card>
+
+      {/* Published Sequences */}
+      {(
+        <Card>
+          <CardHeader className={isMobile && isViewerMode ? 'px-4 pt-6 pb-2' : isMobile ? 'pt-6 pb-2' : ''}>
+            <div className="flex items-center gap-2">
+              <List className="h-5 w-5" />
+              <CardTitle>Sequences</CardTitle>
+            </div>
+            <CardDescription>
+              Published yoga sequences
+            </CardDescription>
+          </CardHeader>
+          <CardContent className={isMobile && isViewerMode ? 'px-4 pt-3 pb-4' : isMobile ? 'pt-3' : ''}>
+            {loadingSequences ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                <p className="text-sm text-muted-foreground">Loading sequences...</p>
+              </div>
+            ) : publishedSequences.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {isViewerMode 
+                  ? "No published sequences yet" 
+                  : "No sequences published to your profile yet. Use the globe icon in Sequence Library to publish sequences."}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {publishedSequences.map((sequence) => {
+                  const totalDuration = calculateSequenceDuration(sequence as any);
+                  const sectionCount = sequence.sections?.length || 0;
+                  return (
+                    <Card
+                      key={sequence.id}
+                      className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => navigate(`/sequence/${sequence.id}`)}
+                    >
+                      <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">
+                        {sequence.name}
+                      </h3>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        <span>{formatDuration(totalDuration)}</span>
+                        {sectionCount > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>{sectionCount} {sectionCount === 1 ? 'section' : 'sections'}</span>
+                          </>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Logout Button (Not in Viewer Mode) */}
       {!isViewerMode && onSignOut && (

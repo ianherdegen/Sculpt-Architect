@@ -46,6 +46,7 @@ export interface Sequence {
   sections: any[] // JSON array of sections
   share_id?: string | null
   display_order?: number
+  published_to_profile?: boolean
   created_at: string
   updated_at: string
 }

@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { Sequence, Pose, PoseVariation } from '../types';
-import { Clock, GripVertical } from 'lucide-react';
+import { Clock, GripVertical, Globe, GlobeLock } from 'lucide-react';
 import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
 import { useIsMobile } from './ui/use-mobile';
 import { Card } from './ui/card';
 import { useNavigate } from 'react-router-dom';
+import { Button } from './ui/button';
 
 interface SequenceLibraryProps {
   sequences: Sequence[];
   poses: Pose[];
   variations: PoseVariation[];
   onReorderSequences?: (sequenceIds: string[]) => void;
+  onTogglePublish?: (sequenceId: string, published: boolean) => Promise<void>;
 }
 
-export function SequenceLibrary({ sequences, poses, variations, onReorderSequences }: SequenceLibraryProps) {
+export function SequenceLibrary({ sequences, poses, variations, onReorderSequences, onTogglePublish }: SequenceLibraryProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [draggedSequenceIndex, setDraggedSequenceIndex] = useState<number | null>(null);
@@ -93,18 +95,39 @@ export function SequenceLibrary({ sequences, poses, variations, onReorderSequenc
                   className="p-4 cursor-pointer hover:shadow-lg transition-shadow flex flex-col relative"
                   onClick={() => navigate(`/sequence-library/${sequence.id}`)}
                 >
-                  {onReorderSequences && !isMobile && (
-                    <div 
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
-                      className="absolute top-2 right-2 cursor-move text-muted-foreground hover:text-foreground z-10"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <GripVertical className="h-5 w-5" />
-                    </div>
-                  )}
+                  <div className="absolute top-2 right-2 flex items-center gap-2 z-10">
+                    {onTogglePublish && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const currentPublished = (sequence as any).published_to_profile || false;
+                          await onTogglePublish(sequence.id, !currentPublished);
+                        }}
+                        title={(sequence as any).published_to_profile ? "Unpublish from profile" : "Publish to profile"}
+                      >
+                        {(sequence as any).published_to_profile ? (
+                          <Globe className="h-4 w-4 text-primary" />
+                        ) : (
+                          <GlobeLock className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    )}
+                    {onReorderSequences && !isMobile && (
+                      <div 
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        className="cursor-move text-muted-foreground hover:text-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <GripVertical className="h-5 w-5" />
+                      </div>
+                    )}
+                  </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">
+                    <h3 className="text-lg font-semibold mb-2 text-black dark:text-white pr-16">
                       {sequence.name}
                     </h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -114,6 +137,15 @@ export function SequenceLibrary({ sequences, poses, variations, onReorderSequenc
                         <>
                           <span>•</span>
                           <span>{sectionCount} {sectionCount === 1 ? 'section' : 'sections'}</span>
+                        </>
+                      )}
+                      {(sequence as any).published_to_profile && (
+                        <>
+                          <span>•</span>
+                          <span className="text-primary flex items-center gap-1">
+                            <Globe className="h-3 w-3" />
+                            <span>Published</span>
+                          </span>
                         </>
                       )}
                     </div>

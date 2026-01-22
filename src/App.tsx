@@ -13,7 +13,7 @@ import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
-import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart } from 'lucide-react';
+import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart, ChevronLeft } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { useIsMobile } from './components/ui/use-mobile';

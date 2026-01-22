@@ -7,6 +7,9 @@ import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useNavigate } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { userProfileService } from '../lib/userProfileService';
+import type { Sequence as DBSequence } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 
 interface PublicSequenceViewProps {
   sequence: Sequence;
@@ -29,6 +32,24 @@ interface TimerState {
 export function PublicSequenceView({ sequence, poses, variations }: PublicSequenceViewProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const [profileName, setProfileName] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const loadProfileName = async () => {
+      const dbSequence = sequence as unknown as DBSequence;
+      if (dbSequence.user_id) {
+        try {
+          const profile = await userProfileService.getByUserId(dbSequence.user_id);
+          if (profile && profile.name) {
+            setProfileName(profile.name);
+          }
+        } catch (error) {
+          console.error('Error loading profile name:', error);
+        }
+      }
+    };
+    loadProfileName();
+  }, [sequence]);
   
   // Always start fresh - reset timer state on page refresh
   const [initialState] = useState<Partial<TimerState>>(() => {
@@ -982,6 +1003,9 @@ export function PublicSequenceView({ sequence, poses, variations }: PublicSequen
               >
                 <Home className="h-4 w-4" />
               </Button>
+              {profileName && (
+                <span className="text-sm font-medium">{profileName}</span>
+              )}
               <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{sequence.name}</h1>
             </div>
           </div>

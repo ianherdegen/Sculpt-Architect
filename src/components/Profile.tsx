@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2, Clock, List } from 'lucide-react';
+import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2, Clock, List, Music, Plus } from 'lucide-react';
 import { ScheduleEditor } from './ScheduleEditor';
 import { userProfileService } from '../lib/userProfileService';
 import { sequenceService } from '../lib/supabaseService';
@@ -36,6 +36,7 @@ export interface UserProfile {
   shareId?: string; // Unique ID for shareable profile links
   venmoUsername?: string; // Venmo username for payment links
   profilePhotoUrl?: string; // Profile photo URL
+  spotifyPlaylistUrls?: string[]; // Array of Spotify playlist URLs
 }
 
 interface ProfileProps {
@@ -64,6 +65,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       shareId: userId || '',
       venmoUsername: '',
       profilePhotoUrl: '',
+      spotifyPlaylistUrls: [],
     }
   );
 
@@ -72,6 +74,10 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [publishedSequences, setPublishedSequences] = useState<Sequence[]>([]);
   const [loadingSequences, setLoadingSequences] = useState(false);
+  const [spotifyUrlErrors, setSpotifyUrlErrors] = useState<Record<number, string | null>>({});
+  const [newSpotifyUrl, setNewSpotifyUrl] = useState('');
+  const [spotifyPlaylistData, setSpotifyPlaylistData] = useState<Record<number, { thumbnail_url?: string; title?: string }>>({});
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
 
   // Convert DB UserProfile to local UserProfile format
   const dbToLocalProfile = (dbProfile: DBUserProfile): UserProfile => {
@@ -83,6 +89,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       shareId: dbProfile.share_id || undefined,
       venmoUsername: dbProfile.venmo_username || undefined,
       profilePhotoUrl: dbProfile.profile_photo_url || undefined,
+      spotifyPlaylistUrls: dbProfile.spotify_playlist_urls || [],
     };
   };
 
@@ -142,6 +149,48 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
     }
   }, [isViewerMode, profileUserId, userId]);
 
+  // Load Spotify playlist data when profile has playlist URLs
+  useEffect(() => {
+    if (profile.spotifyPlaylistUrls && profile.spotifyPlaylistUrls.length > 0) {
+      const loadPlaylistData = async () => {
+        try {
+          setLoadingPlaylists(true);
+          const playlistData: Record<number, { thumbnail_url?: string; title?: string }> = {};
+          
+          // Fetch metadata for each playlist
+          await Promise.all(
+            profile.spotifyPlaylistUrls.map(async (url, index) => {
+              try {
+                const encodedUrl = encodeURIComponent(url);
+                const response = await fetch(`https://embed.spotify.com/oembed?url=${encodedUrl}`);
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  playlistData[index] = {
+                    thumbnail_url: data.thumbnail_url,
+                    title: data.title,
+                  };
+                }
+              } catch (error) {
+                console.error(`Error loading playlist ${index + 1}:`, error);
+              }
+            })
+          );
+          
+          setSpotifyPlaylistData(playlistData);
+        } catch (error) {
+          console.error('Error loading Spotify playlist data:', error);
+        } finally {
+          setLoadingPlaylists(false);
+        }
+      };
+      loadPlaylistData();
+    } else {
+      setSpotifyPlaylistData({});
+    }
+  }, [profile.spotifyPlaylistUrls]);
+
+
   const handleEdit = () => {
     setEditedProfile(profile);
     setIsEditing(true);
@@ -164,8 +213,27 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       }
     }
     
+    // Validate all Spotify playlist URLs
+    const urlErrors: Record<number, string | null> = {};
+    if (editedProfile.spotifyPlaylistUrls) {
+      editedProfile.spotifyPlaylistUrls.forEach((url, index) => {
+        if (url) {
+          const error = validateSpotifyPlaylistUrl(url);
+          if (error) {
+            urlErrors[index] = error;
+          }
+        }
+      });
+    }
+    
+    if (Object.keys(urlErrors).length > 0) {
+      setSpotifyUrlErrors(urlErrors);
+      return;
+    }
+    
     try {
     setSlugError(null);
+    setSpotifyUrlErrors({});
       setLoading(true);
       
       // Save to Supabase
@@ -178,6 +246,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
         events: editedProfile.events,
         share_id: shareIdToSave,
         venmo_username: editedProfile.venmoUsername?.trim() || null,
+        spotify_playlist_urls: editedProfile.spotifyPlaylistUrls?.filter(url => url.trim()) || [],
       });
       
     setProfile(editedProfile);
@@ -193,7 +262,54 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
   const handleCancel = () => {
     setEditedProfile(profile);
     setSlugError(null);
+    setSpotifyUrlErrors({});
+    setNewSpotifyUrl('');
     setIsEditing(false);
+  };
+
+  const handleAddSpotifyPlaylist = () => {
+    if (!newSpotifyUrl.trim()) return;
+    
+    const trimmedUrl = newSpotifyUrl.trim();
+    const error = validateSpotifyPlaylistUrl(trimmedUrl);
+    if (error) {
+      // Show error - user needs to fix URL before adding
+      alert(error);
+      return;
+    }
+    
+    const currentUrls = editedProfile.spotifyPlaylistUrls || [];
+    if (!currentUrls.includes(trimmedUrl)) {
+      setEditedProfile({
+        ...editedProfile,
+        spotifyPlaylistUrls: [...currentUrls, trimmedUrl],
+      });
+      setNewSpotifyUrl('');
+      setSpotifyUrlErrors({});
+    }
+  };
+
+  const handleNewSpotifyUrlBlur = () => {
+    // Auto-add if URL is valid when user leaves the field
+    if (newSpotifyUrl.trim()) {
+      const trimmedUrl = newSpotifyUrl.trim();
+      const error = validateSpotifyPlaylistUrl(trimmedUrl);
+      if (!error) {
+        handleAddSpotifyPlaylist();
+      }
+    }
+  };
+
+  const handleRemoveSpotifyPlaylist = (index: number) => {
+    const currentUrls = editedProfile.spotifyPlaylistUrls || [];
+    setEditedProfile({
+      ...editedProfile,
+      spotifyPlaylistUrls: currentUrls.filter((_, i) => i !== index),
+    });
+    // Clear error for this index
+    const newErrors = { ...spotifyUrlErrors };
+    delete newErrors[index];
+    setSpotifyUrlErrors(newErrors);
   };
 
   const handleCopyShareLink = async () => {
@@ -239,6 +355,28 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
     if (slug.length > 30) return 'Custom link must be less than 30 characters';
     if (!/^[a-z0-9-]+$/.test(slug)) return 'Custom link can only contain lowercase letters, numbers, and hyphens';
     if (slug.startsWith('-') || slug.endsWith('-')) return 'Custom link cannot start or end with a hyphen';
+    return null;
+  };
+
+  const validateSpotifyPlaylistUrl = (url: string): string | null => {
+    if (!url) return null; // Spotify playlist URL is optional
+    
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return null;
+    
+    // Check if it's a valid Spotify playlist URL
+    // Spotify playlist URLs can be:
+    // - https://open.spotify.com/playlist/{id}?si=...
+    // - https://spotify.com/playlist/{id}?si=...
+    // - spotify:playlist:{id}
+    // Playlist IDs are typically 22 characters alphanumeric, but can vary
+    // Allow query parameters like ?si=... which Spotify adds when sharing
+    const spotifyPlaylistPattern = /^(https?:\/\/(open\.)?spotify\.com\/playlist\/[a-zA-Z0-9]+(\?[^\s]*)?|spotify:playlist:[a-zA-Z0-9]+)$/;
+    
+    if (!spotifyPlaylistPattern.test(trimmedUrl)) {
+      return 'Please enter a valid Spotify playlist URL (e.g., https://open.spotify.com/playlist/...)';
+    }
+    
     return null;
   };
 
@@ -924,6 +1062,143 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
           </CardContent>
         </Card>
       )}
+
+      {/* Spotify Playlists */}
+      <Card>
+        <CardHeader className={isMobile && isViewerMode ? 'px-4 pt-6 pb-2' : isMobile ? 'pt-6 pb-2' : ''}>
+          <div className="flex items-center gap-2">
+            <Music className="h-5 w-5 text-[#1DB954]" />
+            <CardTitle>Playlists</CardTitle>
+          </div>
+          <CardDescription>
+            Music playlists for classes
+          </CardDescription>
+        </CardHeader>
+        <CardContent className={isMobile && isViewerMode ? 'px-4 pt-3 pb-4' : isMobile ? 'pt-3' : ''}>
+          {isEditing && !isViewerMode ? (
+            // Edit mode
+            <div className="space-y-2">
+              <div className="space-y-2">
+                {(editedProfile.spotifyPlaylistUrls || []).map((url, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={url}
+                      onChange={(e) => {
+                        const newUrls = [...(editedProfile.spotifyPlaylistUrls || [])];
+                        newUrls[index] = e.target.value.trim();
+                        setEditedProfile({ ...editedProfile, spotifyPlaylistUrls: newUrls });
+                        // Clear error for this index
+                        const newErrors = { ...spotifyUrlErrors };
+                        delete newErrors[index];
+                        setSpotifyUrlErrors(newErrors);
+                      }}
+                      placeholder="https://open.spotify.com/playlist/..."
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveSpotifyPlaylist(index)}
+                      className="h-8 w-8"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newSpotifyUrl}
+                    onChange={(e) => setNewSpotifyUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSpotifyPlaylist();
+                      }
+                    }}
+                    onBlur={handleNewSpotifyUrlBlur}
+                    placeholder="https://open.spotify.com/playlist/..."
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="icon"
+                    onClick={handleAddSpotifyPlaylist}
+                    className="h-8 w-8"
+                    title="Add playlist (or press Enter)"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              {Object.keys(spotifyUrlErrors).length > 0 && (
+                <div className="space-y-1">
+                  {Object.entries(spotifyUrlErrors).map(([index, error]) => (
+                    error && (
+                      <p key={index} className="text-sm text-destructive">
+                        Playlist {parseInt(index) + 1}: {error}
+                      </p>
+                    )
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Add Spotify playlist URLs to share music with your students.
+              </p>
+            </div>
+          ) : profile.spotifyPlaylistUrls && profile.spotifyPlaylistUrls.length > 0 ? (
+            // View mode - show playlists
+            loadingPlaylists ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                <p className="text-sm text-muted-foreground">Loading playlists...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {profile.spotifyPlaylistUrls.map((url, index) => {
+                  const playlistInfo = spotifyPlaylistData[index];
+                  return (
+                    <a
+                      key={index}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg hover:shadow-lg transition-shadow"
+                    >
+                      {playlistInfo?.thumbnail_url ? (
+                        <img
+                          src={playlistInfo.thumbnail_url}
+                          alt={playlistInfo.title || 'Spotify Playlist'}
+                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-[#1DB954] flex items-center justify-center flex-shrink-0">
+                          <Music className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-xs sm:text-sm font-semibold text-black dark:text-white group-hover:text-[#1DB954] transition-colors break-words">
+                          {playlistInfo?.title || `Playlist ${index + 1}`}
+                        </h3>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Open on Spotify</p>
+                      </div>
+                      <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-[#1DB954] transition-colors flex-shrink-0" />
+                    </a>
+                  );
+                })}
+              </div>
+            )
+          ) : (
+            // No playlists
+            <p className="text-center text-muted-foreground py-8">
+              {isViewerMode 
+                ? "No playlists yet" 
+                : "No playlists added yet. Click 'Edit Profile' to add playlists."}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Logout Button (Not in Viewer Mode) */}
       {!isViewerMode && onSignOut && (

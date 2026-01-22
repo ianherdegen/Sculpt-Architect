@@ -119,18 +119,14 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
     }
   }, [initialProfile]);
 
-  // Load published sequences when viewing a public profile or own profile
+  // Load published sequences only when viewing a public profile (viewer mode)
   useEffect(() => {
-    // Use profileUserId if available (public profile), otherwise use userId (own profile)
-    const userIdToLoad = profileUserId || userId;
-    
-    if (userIdToLoad) {
+    // Only load sequences in viewer mode (public profiles)
+    if (isViewerMode && profileUserId) {
       const loadSequences = async () => {
         try {
           setLoadingSequences(true);
-          console.log('Loading sequences for user:', userIdToLoad, 'isViewerMode:', isViewerMode);
-          const sequences = await sequenceService.getPublishedByUserId(userIdToLoad);
-          console.log('Loaded sequences:', sequences);
+          const sequences = await sequenceService.getPublishedByUserId(profileUserId);
           setPublishedSequences(sequences);
         } catch (error) {
           console.error('Error loading published sequences:', error);
@@ -140,7 +136,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       };
       loadSequences();
     }
-  }, [isViewerMode, profileUserId, userId]);
+  }, [isViewerMode, profileUserId]);
 
   const handleEdit = () => {
     setEditedProfile(profile);
@@ -868,8 +864,8 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
         </CardContent>
       </Card>
 
-      {/* Published Sequences */}
-      {(
+      {/* Published Sequences - Only show in viewer mode (public profiles) */}
+      {isViewerMode && (
         <Card>
           <CardHeader className={isMobile && isViewerMode ? 'px-4 pt-6 pb-2' : isMobile ? 'pt-6 pb-2' : ''}>
             <div className="flex items-center gap-2">

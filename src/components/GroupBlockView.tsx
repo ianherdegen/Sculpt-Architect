@@ -109,9 +109,23 @@ export function GroupBlockView({
   const handleDeleteItem = (index: number) => {
     const updatedItems = [...groupBlock.items];
     updatedItems.splice(index, 1);
+    
+    // Clean up itemSubstitutes: remove substitutes for deleted item and update indices for remaining items
+    const itemSubstitutes = groupBlock.itemSubstitutes || [];
+    const updatedSubstitutes = itemSubstitutes
+      .filter(sub => sub.itemIndex !== index) // Remove substitutes for deleted item
+      .map(sub => {
+        // Update indices for items that came after the deleted item
+        if (sub.itemIndex > index) {
+          return { ...sub, itemIndex: sub.itemIndex - 1 };
+        }
+        return sub;
+      });
+    
     onUpdate({
       ...groupBlock,
       items: updatedItems,
+      itemSubstitutes: updatedSubstitutes,
     });
   };
 
@@ -311,13 +325,53 @@ export function GroupBlockView({
     });
   };
 
+  // Helper function to update itemSubstitutes when items are moved
+  // When an item moves from oldIndex to newIndex:
+  // - The moved item's substitute index changes from oldIndex to newIndex
+  // - Items between oldIndex and newIndex shift:
+  //   * If moving forward (oldIndex < newIndex): items at (oldIndex, newIndex] shift backward by 1
+  //   * If moving backward (oldIndex > newIndex): items at [newIndex, oldIndex) shift forward by 1
+  const updateItemSubstitutesAfterMove = (
+    itemSubstitutes: Array<{ round: number; itemIndex: number; substituteItem: PoseInstance | GroupBlock }>,
+    oldIndex: number,
+    newIndex: number
+  ) => {
+    if (oldIndex === newIndex) return itemSubstitutes;
+    
+    return itemSubstitutes.map(sub => {
+      if (sub.itemIndex === oldIndex) {
+        // The moved item's substitute now points to the new index
+        return { ...sub, itemIndex: newIndex };
+      } else if (oldIndex < newIndex) {
+        // Item moved forward: items at indices (oldIndex, newIndex] shift backward by 1
+        // Example: [A,B,C,D] move B (index 1) to index 3: C and D shift back
+        if (sub.itemIndex > oldIndex && sub.itemIndex <= newIndex) {
+          return { ...sub, itemIndex: sub.itemIndex - 1 };
+        }
+      } else {
+        // Item moved backward: items at indices [newIndex, oldIndex) shift forward by 1
+        // Example: [A,B,C,D] move D (index 3) to index 1: B and C shift forward
+        if (sub.itemIndex >= newIndex && sub.itemIndex < oldIndex) {
+          return { ...sub, itemIndex: sub.itemIndex + 1 };
+        }
+      }
+      return sub;
+    });
+  };
+
   const handleMoveItemUp = (index: number) => {
     if (index > 0) {
       const updatedItems = [...groupBlock.items];
       [updatedItems[index - 1], updatedItems[index]] = [updatedItems[index], updatedItems[index - 1]];
+      
+      // Update itemSubstitutes to reflect the swap
+      const itemSubstitutes = groupBlock.itemSubstitutes || [];
+      const updatedSubstitutes = updateItemSubstitutesAfterMove(itemSubstitutes, index, index - 1);
+      
       onUpdate({
         ...groupBlock,
         items: updatedItems,
+        itemSubstitutes: updatedSubstitutes,
       });
     }
   };
@@ -326,9 +380,15 @@ export function GroupBlockView({
     if (index < groupBlock.items.length - 1) {
       const updatedItems = [...groupBlock.items];
       [updatedItems[index], updatedItems[index + 1]] = [updatedItems[index + 1], updatedItems[index]];
+      
+      // Update itemSubstitutes to reflect the swap
+      const itemSubstitutes = groupBlock.itemSubstitutes || [];
+      const updatedSubstitutes = updateItemSubstitutesAfterMove(itemSubstitutes, index, index + 1);
+      
       onUpdate({
         ...groupBlock,
         items: updatedItems,
+        itemSubstitutes: updatedSubstitutes,
       });
     }
   };
@@ -363,9 +423,14 @@ export function GroupBlockView({
     const [removed] = updatedItems.splice(draggedItemIndex, 1);
     updatedItems.splice(targetIndex, 0, removed);
 
+    // Update itemSubstitutes to reflect the move
+    const itemSubstitutes = groupBlock.itemSubstitutes || [];
+    const updatedSubstitutes = updateItemSubstitutesAfterMove(itemSubstitutes, draggedItemIndex, targetIndex);
+
     onUpdate({
       ...groupBlock,
       items: updatedItems,
+      itemSubstitutes: updatedSubstitutes,
     });
     setDraggedItemIndex(null);
     setDragOverItemIndex(null);
@@ -487,9 +552,11 @@ export function GroupBlockView({
     onMoveUp?: () => void,
     onMoveDown?: () => void,
     canMoveUp?: boolean,
-    canMoveDown?: boolean
+    canMoveDown?: boolean,
+    isSubstitute: boolean = false
   ) => {
-    const dragHandleProps = getDragHandlePropsForItem(index, isOverride, round);
+    // Don't make substitute items draggable - they should stay in their container
+    const dragHandleProps = isSubstitute ? {} : getDragHandlePropsForItem(index, isOverride, round);
     
     if (item.type === 'pose_instance') {
       return (
@@ -658,21 +725,70 @@ export function GroupBlockView({
                         
                         {/* Show substitutions for this item */}
                         {substitutionsForThisItem.length > 0 && (
-                          <div className="ml-4 space-y-1">
+                          <div 
+                            className="ml-4 space-y-1"
+                            onDragStart={(e) => {
+                              // Prevent substitute items from being dragged
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }}
+                            onDragOver={(e) => {
+                              // Prevent substitute container from accepting drops from main items
+                              e.stopPropagation();
+                            }}
+                            onDrop={(e) => {
+                              // Prevent drops in substitute container
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }}
+                          >
                             <div className="text-xs text-orange-600 dark:text-orange-400 font-medium">
                               Round Substitutions:
                             </div>
                             {substitutionsForThisItem.map((substitute, subIndex) => (
-                              <div key={`${substitute.round}-${substitute.itemIndex}`} className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded border border-orange-200 dark:border-orange-800">
+                              <div 
+                                key={`${substitute.round}-${substitute.itemIndex}`} 
+                                className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded border border-orange-200 dark:border-orange-800"
+                                draggable={false}
+                                onDragStart={(e) => {
+                                  // Prevent substitute items from being dragged
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                }}
+                                onDragOver={(e) => {
+                                  // Prevent substitute items from accepting drops
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                }}
+                                onDrop={(e) => {
+                                  // Prevent drops on substitute items
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                }}
+                              >
                                 <span className="text-xs text-orange-700 dark:text-orange-300">
                                   Round {substitute.round}:
                                 </span>
-                                <div className="flex-1">
+                                <div 
+                                  className="flex-1"
+                                  draggable={false}
+                                  onDragStart={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                  }}
+                                >
                                   {renderItem(
                                     substitute.substituteItem,
                                     subIndex,
                                     () => handleDeleteItemSubstitute(substitute.round, substitute.itemIndex),
-                                    (updated) => handleUpdateItemSubstitute(substitute.round, substitute.itemIndex, updated)
+                                    (updated) => handleUpdateItemSubstitute(substitute.round, substitute.itemIndex, updated),
+                                    false,
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    false,
+                                    false,
+                                    true // Mark as non-draggable substitute
                                   )}
                                 </div>
                               </div>

@@ -99,14 +99,16 @@ export function PoseInstanceView({
   return (
     <div className={`${isMobile ? 'flex flex-col gap-2 p-2' : 'flex items-center gap-2 p-3'} bg-card border rounded-md`}>
       <div className={`flex ${isMobile ? 'justify-between items-center' : 'items-center gap-2'}`}>
-        <div 
-          {...dragHandleProps} 
-          className="cursor-move text-muted-foreground"
-          onDragStart={handleDragStart}
-          onTouchStart={handleTouchStart}
-        >
-          <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-        </div>
+        {dragHandleProps && Object.keys(dragHandleProps).length > 0 && (
+          <div 
+            {...dragHandleProps} 
+            className="cursor-move text-muted-foreground"
+            onDragStart={handleDragStart}
+            onTouchStart={handleTouchStart}
+          >
+            <GripVertical className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+          </div>
+        )}
         <div className={`flex-1 ${isMobile ? 'ml-2 text-left' : ''}`}>
           <div className={`flex ${isMobile ? 'flex-col gap-1' : 'items-center gap-2'}`}>
             <span className={`${isMobile ? 'text-sm font-medium' : 'text-sm'}`}>{pose?.name || 'Unknown Pose'}</span>

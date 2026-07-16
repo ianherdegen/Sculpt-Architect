@@ -5,6 +5,7 @@ import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
 import { PublicSequenceView } from './components/PublicSequenceView';
 import { AuthPage } from './components/AuthPage';
+import { MagicLinkVerify } from './components/MagicLinkVerify';
 import { Profile } from './components/Profile';
 import { PublicProfile } from './components/PublicProfile';
 import { AdminPage } from './components/AdminPage';
@@ -816,7 +817,10 @@ export default function App() {
         } 
       />
       <Route
-        path="/sequence-builder"
+        path="/auth/verify"
+        element={<MagicLinkVerify />}
+      />
+      <Route
         element={
           !user ? (
             <Navigate to="/" replace />

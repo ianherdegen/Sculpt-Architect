@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth';
 import { usePermission } from '../lib/usePermissions';
 import { permissionsService, PermissionKey } from '../lib/permissionsService';
-import { supabase, UserProfile } from '../lib/supabase';
+import { api } from '../lib/apiClient';
+import type { UserProfile } from '../lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -47,33 +48,11 @@ export function AdminPage() {
       try {
         setLoading(true);
         
-        // Try using the RPC function first (if available)
-        const { data: rpcData, error: rpcError } = await supabase
-          .rpc('get_all_users_for_admin');
-
-        if (!rpcError && rpcData) {
-          const usersWithPermissions = (rpcData || []).map((user: any) => ({
-            ...user,
-            permissions: (user.permissions as Record<string, boolean>) || {}
-          }));
-          setUsers(usersWithPermissions);
-          return;
-        }
-
-        // Fallback to direct query if RPC function doesn't exist
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .order('email', { ascending: true });
-
-        if (error) throw error;
-
-        const usersWithPermissions = (data || []).map(user => ({
+        const usersData = await api.get<UserWithPermissions[]>('/admin/users', true);
+        setUsers(usersData.map(user => ({
           ...user,
-          permissions: (user.permissions as Record<string, boolean>) || {}
-        }));
-
-        setUsers(usersWithPermissions);
+          permissions: user.permissions || {}
+        })));
       } catch (error) {
         console.error('Error fetching users:', error);
         alert('Failed to load users. Please try again.');
@@ -99,13 +78,7 @@ export function AdminPage() {
         [permissionKey]: checked
       };
 
-      // Update in database
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ permissions: updatedPermissions })
-        .eq('user_id', userId);
-
-      if (error) throw error;
+      await api.patch(`/admin/users/${userId}/permissions`, { permissions: updatedPermissions });
 
       // Update local state
       setUsers(prev => prev.map(u => 
@@ -130,12 +103,7 @@ export function AdminPage() {
     try {
       setSaving(userId);
       
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ is_banned: isBanned })
-        .eq('user_id', userId);
-
-      if (error) throw error;
+      await api.patch(`/admin/users/${userId}/ban`, { is_banned: isBanned });
 
       // Update local state
       setUsers(prev => prev.map(u => 

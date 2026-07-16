@@ -1,1 +1,8 @@
 .vercel
+node_modules
+build
+uploads
+local.db
+local.db-*
+.env.local
+.DS_Store

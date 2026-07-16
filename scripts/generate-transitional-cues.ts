@@ -1,154 +1,116 @@
 /**
  * Script to generate transitional cues for all pose variations using LLM
- * 
+ *
  * Usage:
- *   npx tsx scripts/generate-transitional-cues.ts
- * 
+ *   yarn generate-transitional-cues
+ *
  * Environment variables required:
- *   VITE_SUPABASE_URL - Your Supabase project URL
- *   VITE_SUPABASE_ANON_KEY - Your Supabase anon key
- *   OPENAI_API_KEY or ANTHROPIC_API_KEY - LLM API key
- *   LLM_PROVIDER - 'openai' or 'anthropic' (default: 'openai')
- *   LLM_MODEL - Optional model name (default: 'gpt-4o-mini' for OpenAI, 'claude-3-haiku-20240307' for Anthropic)
+ *   TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+ *   OPENAI_API_KEY or ANTHROPIC_API_KEY
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { generateTransitionalCues, batchGenerateCues } from '../src/lib/llmService';
+import { getScriptDb, parseJson } from './db'
+import { batchGenerateCues } from '../src/lib/llmService'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
-const openaiKey = process.env.OPENAI_API_KEY;
-const anthropicKey = process.env.ANTHROPIC_API_KEY;
-const llmProvider = (process.env.LLM_PROVIDER || 'openai') as 'openai' | 'anthropic';
-const llmModel = process.env.LLM_MODEL;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Error: Missing Supabase environment variables');
-  console.error('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
-  process.exit(1);
-}
+const openaiKey = process.env.OPENAI_API_KEY
+const anthropicKey = process.env.ANTHROPIC_API_KEY
+const llmProvider = (process.env.LLM_PROVIDER || 'openai') as 'openai' | 'anthropic'
+const llmModel = process.env.LLM_MODEL
 
 if (!openaiKey && !anthropicKey) {
-  console.error('Error: Missing LLM API key');
-  console.error('Please set either OPENAI_API_KEY or ANTHROPIC_API_KEY');
-  process.exit(1);
+  console.error('Error: Missing LLM API key')
+  process.exit(1)
 }
 
-const apiKey = llmProvider === 'openai' ? openaiKey! : anthropicKey!;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-interface PoseVariation {
-  id: string;
-  pose_id: string;
-  name: string;
-  pose_name?: string;
-}
+const apiKey = llmProvider === 'openai' ? openaiKey! : anthropicKey!
 
 async function main() {
-  console.log('🚀 Starting transitional cues generation...\n');
+  console.log('🚀 Starting transitional cues generation...\n')
 
-  // Fetch all poses and variations
-  console.log('📥 Fetching poses and variations from database...');
-  const { data: variations, error: variationsError } = await supabase
-    .from('pose_variations')
-    .select(`
-      id,
-      pose_id,
-      name,
-      transitional_cues,
-      poses(name)
-    `)
-    .order('pose_id, name');
+  const db = getScriptDb()
+  const result = await db.execute(`
+    SELECT pv.id, pv.pose_id, pv.name, pv.transitional_cues, p.name as pose_name
+    FROM pose_variations pv
+    JOIN poses p ON p.id = pv.pose_id
+    ORDER BY pv.pose_id, pv.name
+  `)
 
-  if (variationsError) {
-    console.error('Error fetching variations:', variationsError);
-    process.exit(1);
+  if (result.rows.length === 0) {
+    console.log('No pose variations found in database.')
+    return
   }
 
-  if (!variations || variations.length === 0) {
-    console.log('No pose variations found in database.');
-    return;
-  }
+  const variations = result.rows.map((row) => ({
+    id: row.id as string,
+    pose_id: row.pose_id as string,
+    name: row.name as string,
+    pose_name: row.pose_name as string,
+    transitional_cues: parseJson<string[]>(row.transitional_cues, []),
+  }))
 
-  console.log(`Found ${variations.length} pose variations\n`);
+  console.log(`Found ${variations.length} pose variations\n`)
 
-  // Filter out variations that already have cues
   const variationsNeedingCues = variations.filter(
-    (v: any) => !v.transitional_cues || (Array.isArray(v.transitional_cues) && v.transitional_cues.length === 0)
-  );
+    (v) => !v.transitional_cues || v.transitional_cues.length === 0
+  )
 
   if (variationsNeedingCues.length === 0) {
-    console.log('✅ All variations already have transitional cues!');
-    return;
+    console.log('✅ All variations already have transitional cues!')
+    return
   }
 
-  console.log(`Generating cues for ${variationsNeedingCues.length} variations...\n`);
+  console.log(`Generating cues for ${variationsNeedingCues.length} variations...\n`)
 
-  // Prepare data for batch generation
-  const variationsToProcess = variationsNeedingCues.map((v: any) => ({
-    poseName: v.poses?.name || 'Unknown Pose',
+  const variationsToProcess = variationsNeedingCues.map((v) => ({
+    poseName: v.pose_name,
     variationName: v.name,
     id: v.id,
-  }));
+  }))
 
-  // Generate cues in batches
-  const config = {
-    provider: llmProvider,
-    apiKey,
-    model: llmModel,
-  };
+  const config = { provider: llmProvider, apiKey, model: llmModel }
 
-  let processed = 0;
   const results = await batchGenerateCues(
     variationsToProcess.map(({ poseName, variationName }) => ({ poseName, variationName })),
     config,
     (current, total) => {
-      processed = current;
-      const percentage = Math.round((current / total) * 100);
-      process.stdout.write(`\r⏳ Progress: ${current}/${total} (${percentage}%)`);
+      const percentage = Math.round((current / total) * 100)
+      process.stdout.write(`\r⏳ Progress: ${current}/${total} (${percentage}%)`)
     }
-  );
+  )
 
-  console.log('\n\n💾 Saving cues to database...\n');
+  console.log('\n\n💾 Saving cues to database...\n')
 
-  // Update database with generated cues
-  let successCount = 0;
-  let errorCount = 0;
+  let successCount = 0
+  let errorCount = 0
 
   for (const variation of variationsToProcess) {
-    const key = `${variation.poseName}::${variation.variationName}`;
-    const cues = results.get(key);
+    const key = `${variation.poseName}::${variation.variationName}`
+    const cues = results.get(key)
 
     if (!cues || cues.length !== 3) {
-      console.error(`⚠️  Invalid cues for ${key}, skipping...`);
-      errorCount++;
-      continue;
+      console.error(`⚠️  Invalid cues for ${key}, skipping...`)
+      errorCount++
+      continue
     }
 
-    const { error } = await supabase
-      .from('pose_variations')
-      .update({ transitional_cues: cues })
-      .eq('id', variation.id);
-
-    if (error) {
-      console.error(`❌ Error updating ${variation.poseName} - ${variation.variationName}:`, error.message);
-      errorCount++;
-    } else {
-      console.log(`✅ ${variation.poseName} - ${variation.variationName}`);
-      successCount++;
+    try {
+      await db.execute({
+        sql: `UPDATE pose_variations SET transitional_cues = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [JSON.stringify(cues), variation.id],
+      })
+      console.log(`✅ ${variation.poseName} - ${variation.variationName}`)
+      successCount++
+    } catch (error) {
+      console.error(`❌ Error updating ${variation.poseName} - ${variation.variationName}:`, error)
+      errorCount++
     }
   }
 
-  console.log('\n' + '='.repeat(50));
-  console.log(`✨ Generation complete!`);
-  console.log(`   ✅ Success: ${successCount}`);
-  console.log(`   ❌ Errors: ${errorCount}`);
-  console.log('='.repeat(50));
+  console.log('\n' + '='.repeat(50))
+  console.log(`✨ Generation complete! Success: ${successCount}, Errors: ${errorCount}`)
 }
 
 main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
-
+  console.error('Fatal error:', error)
+  process.exit(1)
+})

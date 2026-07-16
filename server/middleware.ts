@@ -1,5 +1,5 @@
 import { Context, Next } from 'hono'
-import { getTokenFromHeader, verifyToken, type AuthUser } from './auth'
+import { getTokenFromHeader, verifyToken, type AuthUser } from './auth.js'
 
 export type AppVariables = {
   user: AuthUser

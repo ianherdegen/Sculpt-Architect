@@ -12,7 +12,7 @@ import {
   boolToInt,
   hasPermission,
   isAdmin,
-} from './db'
+} from './db.js'
 import {
   createToken,
   generateId,
@@ -20,10 +20,10 @@ import {
   hashPassword,
   verifyPassword,
   type AuthUser,
-} from './auth'
-import { requireAuth } from './middleware'
-import { findSequencesUsingVariation } from './variationCheck'
-import { uploadFile, deleteFileByUrl } from './storage'
+} from './auth.js'
+import { requireAuth } from './middleware.js'
+import { findSequencesUsingVariation } from './variationCheck.js'
+import { uploadFile, deleteFileByUrl } from './storage.js'
 
 type Env = {
   Variables: {

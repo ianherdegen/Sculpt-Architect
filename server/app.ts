@@ -1,9 +1,6 @@
 // @ts-nocheck
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { readFile } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
 import {
   getDb,
   formatUserProfile,
@@ -43,25 +40,32 @@ app.use('*', cors({
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
-// Serve local uploads in development
+// Serve local uploads in development (Node only)
 app.get('/api/files/*', async (c) => {
-  const path = c.req.path.replace('/api/files/', '')
-  const fullPath = join(process.cwd(), 'uploads', path)
-  if (!existsSync(fullPath)) {
-    return c.json({ error: 'File not found' }, 404)
+  try {
+    const { readFile } = await import('fs/promises')
+    const { join } = await import('path')
+    const { existsSync } = await import('fs')
+    const path = c.req.path.replace('/api/files/', '')
+    const fullPath = join(process.cwd(), 'uploads', path)
+    if (!existsSync(fullPath)) {
+      return c.json({ error: 'File not found' }, 404)
+    }
+    const data = await readFile(fullPath)
+    const ext = path.split('.').pop()?.toLowerCase()
+    const contentTypes: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+    }
+    return new Response(data, {
+      headers: { 'Content-Type': contentTypes[ext || ''] || 'application/octet-stream' },
+    })
+  } catch {
+    return c.json({ error: 'File serving unavailable in this environment' }, 501)
   }
-  const data = await readFile(fullPath)
-  const ext = path.split('.').pop()?.toLowerCase()
-  const contentTypes: Record<string, string> = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-  }
-  return new Response(data, {
-    headers: { 'Content-Type': contentTypes[ext || ''] || 'application/octet-stream' },
-  })
 })
 
 // ============================================================================
@@ -410,7 +414,7 @@ app.post('/api/pose-variations/:id/image', requireAuth, async (c) => {
 
   const ext = file.name.split('.').pop() || 'jpg'
   const path = `pose-images/variations/${id}-${Date.now()}.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
+  const buffer = new Uint8Array(await file.arrayBuffer())
   const url = await uploadFile(path, buffer, file.type)
 
   const db = getDb()
@@ -696,7 +700,7 @@ app.post('/api/profiles/me/photo', requireAuth, async (c) => {
 
   const ext = file.name.split('.').pop() || 'jpg'
   const path = `profile-photos/${user.id}/photo-${Date.now()}.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
+  const buffer = new Uint8Array(await file.arrayBuffer())
   const url = await uploadFile(path, buffer, file.type)
 
   const db = getDb()

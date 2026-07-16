@@ -38,7 +38,15 @@ app.use('*', cors({
 }))
 
 // Health check
-app.get('/api/health', (c) => c.json({ status: 'ok' }))
+app.get('/api/health', async (c) => {
+  try {
+    const db = getDb()
+    await db.execute('SELECT 1 as ok')
+    return c.json({ status: 'ok', db: true })
+  } catch (err: any) {
+    return c.json({ status: 'degraded', db: false, error: err?.message || String(err) }, 500)
+  }
+})
 
 // Serve local uploads in development (Node only)
 app.get('/api/files/*', async (c) => {

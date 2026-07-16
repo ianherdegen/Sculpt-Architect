@@ -5,9 +5,6 @@ import app from '../server/app.js'
 export const config = {
   runtime: 'nodejs',
   maxDuration: 30,
-  api: {
-    bodyParser: false,
-  },
 }
 
 const baseHandle = handle(app)

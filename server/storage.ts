@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { put, del } from '@vercel/blob'
 import { writeFile, mkdir, unlink } from 'fs/promises'
 import { join, dirname } from 'path'

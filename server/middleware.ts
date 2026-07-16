@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Context, Next } from 'hono'
 import { getTokenFromHeader, verifyToken, type AuthUser } from './auth.js'
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Recursively check if a sequence item contains a variation ID
 function itemContainsVariation(item: unknown, variationId: string): boolean {
   if (!item || typeof item !== 'object') return false

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'

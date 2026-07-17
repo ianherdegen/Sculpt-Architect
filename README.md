@@ -23,8 +23,8 @@ A web app for yoga teachers to build class sequences, manage pose libraries and 
 ### Install
 
 ```bash
-git clone https://github.com/ianherdegen/Sculpt-Sequences.git
-cd Sculpt-Sequences
+git clone https://github.com/ianherdegen/Sculpt-Architect.git
+cd Sculpt-Architect
 yarn install
 ```
 

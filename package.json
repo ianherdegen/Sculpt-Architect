@@ -6,7 +6,7 @@
     "description": "Yoga sequence builder for teachers — pose libraries, class planning, and sharing",
     "repository": {
         "type": "git",
-        "url": "https://github.com/ianherdegen/Sculpt-Sequences.git"
+        "url": "https://github.com/ianherdegen/Sculpt-Architect.git"
     },
     "license": "MIT",
     "engines": {

@@ -1,70 +1,88 @@
-# Yoga Sequence Builder
+# Sculpt Sequences
 
-Note: This README file was automatically generated and may contain inaccuracies.
+A web app for yoga teachers to build class sequences, manage pose libraries and variations, and share schedules with students.
 
-A web application for building and managing yoga sequences with pose libraries, variations, and class scheduling.
+**Stack:** React + Vite · Hono API · Turso (libSQL) · JWT auth · Vercel
 
-## Quick Start
+## Features
+
+- Pose library with variations, cues, and images
+- Drag-and-drop sequence builder with sections and timing
+- Public share links and instructor profiles
+- Transitional cue generation helpers
+- Role-based permissions for pose management
+
+## Quick start
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- Yarn package manager
-- A [Turso](https://turso.tech) database
+- Node.js 18+
+- [Yarn](https://yarnpkg.com/)
+- A [Turso](https://turso.tech) database (or local SQLite for development)
 
-### Installation
+### Install
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/ianherdegen/Sculpt-Sequences.git
 cd Sculpt-Sequences
-```
-
-2. Install dependencies:
-```bash
 yarn install
 ```
 
-### Environment Setup
+### Environment
 
-1. Copy the environment template file:
 ```bash
 cp env.template .env.local
 ```
 
-2. Edit `.env.local` and add your Turso credentials (see `TURSO_SETUP.md` for full instructions):
-   - `TURSO_DATABASE_URL` — Turso database URL
-   - `TURSO_AUTH_TOKEN` — Turso auth token
-   - `JWT_SECRET` — Secret for signing auth tokens
+Fill in at least:
 
-For local development without Turso cloud, you can use `TURSO_DATABASE_URL=file:local.db`.
+| Variable | Purpose |
+|----------|---------|
+| `TURSO_DATABASE_URL` | Turso URL, or `file:local.db` for local SQLite |
+| `TURSO_AUTH_TOKEN` | Turso auth token (not needed for `file:`) |
+| `JWT_SECRET` | Secret used to sign auth tokens |
 
-### Database Setup
+See `env.template` for optional Blob storage and Resend email settings. Full Turso setup: [`TURSO_SETUP.md`](./TURSO_SETUP.md).
 
-Run the Turso schema:
+### Database
 
 ```bash
+# Turso cloud
 turso db shell sculpt-sequences < sql/turso-schema.sql
-# Or locally:
+
+# Or local SQLite
 sqlite3 local.db < sql/turso-schema.sql
 ```
 
-### Running the Development Server
-
-Start both the API server and frontend:
+### Run locally
 
 ```bash
-# Terminal 1: API server
+# Terminal 1 — API (http://localhost:3001)
 yarn dev:api
 
-# Terminal 2: Frontend
+# Terminal 2 — Frontend (http://localhost:3000)
 yarn dev
 ```
 
-The application will be available at `http://localhost:3000`.
+The Vite dev server proxies `/api` to the local API.
 
-## Additional Resources
+## Project layout
 
-- See `TURSO_SETUP.md` for detailed Turso setup and deployment
-- See `PERMISSIONS_SETUP.md` for information about the permissions system
-- See `TRANSITIONAL_CUES_SETUP.md` for AI-generated transitional cues setup
+```
+src/          React SPA
+server/       Hono API (local + shared handlers)
+api/          Vercel serverless entry
+sql/          Schema and maintenance scripts
+scripts/      One-off migration / data tools
+```
+
+## Docs
+
+- [`TURSO_SETUP.md`](./TURSO_SETUP.md) — database and deployment
+- [`PERMISSIONS_SETUP.md`](./PERMISSIONS_SETUP.md) — permissions model
+- [`IMAGE_UPLOAD_SETUP.md`](./IMAGE_UPLOAD_SETUP.md) — image storage
+- [`TRANSITIONAL_CUES_SETUP.md`](./TRANSITIONAL_CUES_SETUP.md) — transitional cues
+
+## License
+
+MIT — see [LICENSE](./LICENSE).

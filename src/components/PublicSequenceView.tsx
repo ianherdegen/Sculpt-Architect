@@ -6,7 +6,7 @@ import { useIsMobile } from './ui/use-mobile';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useNavigate } from 'react-router-dom';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { ImageWithFallback } from './ImageWithFallback';
 import { useAuth } from '../lib/auth';
 import { userProfileService } from '../lib/userProfileService';
 import { sequenceService } from '../lib/supabaseService';

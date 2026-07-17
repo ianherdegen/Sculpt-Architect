@@ -9,7 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from './ui/card';
 import { sequenceService } from '../lib/supabaseService';
 import { useAuth } from '../lib/auth';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { ImageWithFallback } from './ImageWithFallback';
 
 interface SequenceViewProps {
   sequences: Sequence[];

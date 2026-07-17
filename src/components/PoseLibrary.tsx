@@ -11,7 +11,7 @@ import { Badge } from './ui/badge';
 import { Plus, Trash2, Edit, Search, Upload, X, Image as ImageIcon, ChevronDown, Grid3x3, Table as TableIcon, Save, Pencil, User } from 'lucide-react';
 import { useIsMobile } from './ui/use-mobile';
 import { generateUUID } from '../lib/uuid';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { ImageWithFallback } from './ImageWithFallback';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';

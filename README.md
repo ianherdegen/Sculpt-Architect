@@ -1,5 +1,7 @@
 # Sculpt Sequences
 
+Generate automatically July 17, 2026 - may contain inaccuracies.
+
 A web app for yoga teachers to build class sequences, manage pose libraries and variations, and share schedules with students.
 
 **Stack:** React + Vite · Hono API · Turso (libSQL) · JWT auth · Vercel

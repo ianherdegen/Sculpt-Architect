@@ -45,10 +45,25 @@ async function request<T>(
     throw new ApiError('Unauthorized', 401)
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  })
+  const controller = new AbortController()
+  const timeoutMs = 20000
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError('Request timed out. Please try again.', 504)
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
 
   if (response.status === 204) {
     return undefined as T

@@ -3,22 +3,50 @@ import { createClient, type Client } from '@libsql/client/web'
 
 let client: Client | null = null
 
+function toHttpUrl(url: string): string {
+  // Force HTTPS pipeline mode on Vercel (avoids ws + isomorphic-fetch issues)
+  if (url.startsWith('libsql://')) return `https://${url.slice('libsql://'.length)}`
+  return url
+}
+
 export function getDb(): Client {
   if (client) return client
 
-  const url = process.env.TURSO_DATABASE_URL
+  const rawUrl = process.env.TURSO_DATABASE_URL
   const authToken = process.env.TURSO_AUTH_TOKEN
 
-  if (!url) {
+  if (!rawUrl) {
     throw new Error('TURSO_DATABASE_URL environment variable is required')
   }
 
   client = createClient({
-    url,
+    url: toHttpUrl(rawUrl),
     authToken: authToken || undefined,
+    // Native fetch works on Vercel; default isomorphic-fetch can 401 there.
+    fetch: async (input: any, init?: any) => {
+      if (input && typeof input === 'object' && typeof input.url === 'string') {
+        const headers = new Headers(input.headers || undefined)
+        const method = input.method || 'GET'
+        let body = init?.body
+        if (body === undefined && method !== 'GET' && method !== 'HEAD') {
+          body = await input.arrayBuffer()
+        }
+        return globalThis.fetch(input.url, { method, headers, body })
+      }
+      return globalThis.fetch(input, init)
+    },
   })
 
   return client
+}
+
+export function resetDb() {
+  try {
+    client?.close?.()
+  } catch {
+    // ignore
+  }
+  client = null
 }
 
 export function rowToBool(value: unknown): boolean {

@@ -3,6 +3,12 @@
   "outputDirectory": "build",
   "installCommand": "yarn install",
   "framework": "vite",
+  "functions": {
+    "api/route.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
   "rewrites": [
     {
       "source": "/api",

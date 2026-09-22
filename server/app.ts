@@ -37,6 +37,11 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 }))
 
+app.onError((err, c) => {
+  console.error('API error:', err)
+  return c.json({ error: err?.message || 'Internal server error' }, 500)
+})
+
 // Health check
 app.get('/api/health', async (c) => {
   try {
@@ -191,23 +196,48 @@ app.post('/api/auth/magic-link', async (c) => {
     args: [tokenId, userId, token, expiresAt],
   })
 
-  const appUrl = process.env.APP_URL || 'http://localhost:3000'
+  const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
   const magicLink = `${appUrl}/auth/verify?token=${token}`
 
   if (process.env.RESEND_API_KEY) {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'noreply@example.com',
-        to: email.toLowerCase(),
-        subject: 'Sign in to Sculpt Sequences',
-        html: `<p>Click <a href="${magicLink}">here</a> to sign in. This link expires in 15 minutes.</p>`,
-      }),
-    })
+    const from = process.env.EMAIL_FROM
+    if (!from) {
+      return c.json({ error: 'Email service not configured. Set EMAIL_FROM to enable magic links.' }, 503)
+    }
+
+    let res
+    try {
+      res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(12000),
+        body: JSON.stringify({
+          from,
+          to: email.toLowerCase(),
+          subject: 'Your Sculpt Sequences login',
+          html: `
+            <h2 style="color: #030213; font-size: 24px; margin-bottom: 20px;">Your Sculpt Sequences login</h2>
+            <p style="color: #717182; font-size: 16px; line-height: 1.6;">Click below to securely access your sequence library. This link expires in 15 minutes.</p>
+            <p style="margin-top: 24px;">
+              <a href="${magicLink}" style="display: inline-block; padding: 12px 24px; background: #030213; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">Log In</a>
+            </p>
+            <p style="color: #717182; font-size: 14px; line-height: 1.6; margin-top: 24px;">If the button doesn't work, copy and paste this link:<br/><a href="${magicLink}" style="color: #030213;">${magicLink}</a></p>
+          `,
+        }),
+      })
+    } catch (err) {
+      console.error('[magic-link] Resend request failed:', err)
+      return c.json({ error: 'Failed to send magic link email. Please try again later.' }, 502)
+    }
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      console.error('[magic-link] Resend failed:', res.status, detail)
+      return c.json({ error: 'Failed to send magic link email. Please try again later.' }, 502)
+    }
   } else if (process.env.NODE_ENV !== 'production') {
     console.log(`[dev] Magic link for ${email}: ${magicLink}`)
   } else {

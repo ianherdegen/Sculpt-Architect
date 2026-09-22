@@ -821,6 +821,7 @@ export default function App() {
         element={<MagicLinkVerify />}
       />
       <Route
+        path="/sequence-builder"
         element={
           !user ? (
             <Navigate to="/" replace />

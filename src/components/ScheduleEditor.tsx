@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Plus, Pencil, Trash2, Calendar, Repeat } from 'lucide-react';
 import { ClassEvent } from './Profile';
 import { useIsMobile } from './ui/use-mobile';
+import { usePermission } from '../lib/usePermissions';
+import '../styles/schedule-form.css';
 
 interface ScheduleEditorProps {
   events: ClassEvent[];
@@ -19,6 +21,7 @@ interface ScheduleEditorProps {
 
 export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEvent }: ScheduleEditorProps) {
   const isMobile = useIsMobile();
+  const { hasPermission: isAdmin } = usePermission('admin');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ClassEvent | null>(null);
   const [eventType, setEventType] = useState<'recurring' | 'single'>('recurring');
@@ -30,6 +33,8 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [minRsvps, setMinRsvps] = useState('');
+  const [cancelHoursBefore, setCancelHoursBefore] = useState('12');
 
   const days = [
     { value: 0, label: 'Sunday' },
@@ -49,6 +54,8 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
     setEndTime('');
     setLocation('');
     setDescription('');
+    setMinRsvps('');
+    setCancelHoursBefore('12');
     setEditingEvent(null);
     setEventType('recurring');
   };
@@ -68,6 +75,8 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
     setEndTime(event.endTime);
     setLocation(event.location);
     setDescription(event.description || '');
+    setMinRsvps(event.minRsvps ? String(event.minRsvps) : '');
+    setCancelHoursBefore(event.cancelHoursBefore ? String(event.cancelHoursBefore) : '12');
     setIsAddDialogOpen(true);
   };
 
@@ -97,6 +106,17 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
       description,
       isRecurring: eventType === 'recurring',
     };
+
+    if (isAdmin) {
+      const required = Number.parseInt(minRsvps, 10);
+      if (Number.isInteger(required) && required > 0) {
+        const hours = Number.parseInt(cancelHoursBefore, 10);
+        eventData.minRsvps = required;
+        eventData.cancelHoursBefore = Number.isInteger(hours) && hours > 0 ? hours : 12;
+      } else {
+        (eventData as ClassEvent & { minRsvps: number | null }).minRsvps = null;
+      }
+    }
 
     if (editingEvent) {
       onUpdateEvent(editingEvent.id, eventData);
@@ -141,15 +161,15 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
             Add Class or Event
           </Button>
         </DialogTrigger>
-        <DialogContent className={`${isMobile ? 'max-w-full h-[95vh] m-0 rounded-none flex flex-col p-4' : 'max-w-md max-h-[90vh]'} overflow-hidden`}>
-          <DialogHeader className={isMobile ? 'pb-3 flex-shrink-0' : ''}>
+        <DialogContent className="schedule-form">
+          <DialogHeader className={isMobile ? 'pb-3' : ''}>
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Add New Event'}</DialogTitle>
             <DialogDescription>
               {editingEvent ? 'Update event details' : 'Create a recurring class or single event'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className={`overflow-y-auto flex-1 ${isMobile ? 'min-h-0' : ''}`}>
+          <div className="schedule-form-body">
             <Tabs value={eventType} onValueChange={(v) => setEventType(v as 'recurring' | 'single')}>
               <TabsList className={`!grid !grid-cols-2 w-full ${isMobile ? 'gap-1' : ''}`}>
                 <TabsTrigger value="recurring" className={isMobile ? 'text-sm' : ''}>
@@ -325,9 +345,45 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
               </div>
             </TabsContent>
           </Tabs>
+            {isAdmin && (
+              <div className="space-y-4 mt-4 border-t pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="min-rsvps">RSVPs required for the class to run</Label>
+                  <Input
+                    id="min-rsvps"
+                    type="number"
+                    min="1"
+                    value={minRsvps}
+                    onChange={(e) => setMinRsvps(e.target.value)}
+                    placeholder="No minimum"
+                    className={isMobile ? 'text-base' : ''}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank if the class runs no matter how many people RSVP.
+                  </p>
+                </div>
+                {minRsvps.trim() !== '' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cancel-hours">Hours before class</Label>
+                    <Input
+                      id="cancel-hours"
+                      type="number"
+                      min="1"
+                      value={cancelHoursBefore}
+                      onChange={(e) => setCancelHoursBefore(e.target.value)}
+                      placeholder="12"
+                      className={isMobile ? 'text-base' : ''}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      If that many RSVPs are not in by this time, the class is cancelled. Default is 12 hours.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <DialogFooter className={`${isMobile ? 'pt-3 border-t flex-shrink-0 mt-auto gap-2' : ''}`}>
+          <DialogFooter className={isMobile ? 'pt-3 border-t' : ''}>
             <Button variant="outline" onClick={() => {
               setIsAddDialogOpen(false);
               resetForm();
@@ -362,6 +418,11 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                         {getDayName(event.dayOfWeek || 0)} • {formatTime(event.startTime)} - {formatTime(event.endTime)}
                       </p>
                       <p className="text-sm text-muted-foreground truncate">{event.location}</p>
+                      {event.minRsvps ? (
+                        <p className="text-sm text-muted-foreground">
+                          Needs {event.minRsvps} RSVPs, or cancels {event.cancelHoursBefore || 12} hours before
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-1 ml-2">
                       <Button
@@ -403,6 +464,11 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                         {formatTime(event.startTime)} - {formatTime(event.endTime)}
                       </p>
                       <p className="text-sm text-muted-foreground truncate">{event.location}</p>
+                      {event.minRsvps ? (
+                        <p className="text-sm text-muted-foreground">
+                          Needs {event.minRsvps} RSVPs, or cancels {event.cancelHoursBefore || 12} hours before
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-1 ml-2">
                       <Button

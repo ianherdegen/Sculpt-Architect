@@ -14,6 +14,9 @@ import type { UserProfile as DBUserProfile } from '../lib/supabase';
 import type { Sequence } from '../lib/supabase';
 import { useIsMobile } from './ui/use-mobile';
 import { usePermission } from '../lib/usePermissions';
+import { useAuth } from '../lib/auth';
+import { useViewMode } from '../lib/viewMode';
+import { StudentClasses } from './StudentClasses';
 import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
 
 export interface ClassEvent {
@@ -26,6 +29,8 @@ export interface ClassEvent {
   location: string;
   description?: string;
   isRecurring: boolean;
+  minRsvps?: number;
+  cancelHoursBefore?: number;
 }
 
 export interface UserProfile {
@@ -50,7 +55,11 @@ interface ProfileProps {
 
 export function Profile({ userEmail, userId, profileUserId, isViewerMode = false, onSignOut, initialProfile }: ProfileProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { mode, canInstruct } = useViewMode();
   const isMobile = useIsMobile();
+  const ownsProfile = !isViewerMode || (!!user && !!profileUserId && user.id === profileUserId);
+  const showStudentHome = !isViewerMode && mode === 'student';
   const { hasPermission: hasAdminAccess } = usePermission('admin');
   const [isEditing, setIsEditing] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -597,9 +606,9 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <User className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">{isViewerMode ? 'Instructor Profile' : 'My Profile'}</h2>
+          <h2 className="text-xl font-semibold">{showStudentHome ? 'Student' : isViewerMode ? 'Instructor Profile' : 'My Profile'}</h2>
         </div>
-        {!isViewerMode && !isEditing && (
+        {!isViewerMode && !isEditing && !showStudentHome && (
           <div className="flex gap-2 ml-auto">
             {hasAdminAccess && (
               <Button onClick={() => navigate('/admin')} size="sm" variant="outline">
@@ -639,6 +648,10 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
         )}
       </div>
 
+      {showStudentHome ? (
+        <StudentClasses />
+      ) : (
+      <>
       {/* Profile Information */}
       <Card>
         <CardHeader className={isMobile && isViewerMode ? 'px-4 pt-6 pb-2' : isMobile ? 'pt-6 pb-2' : ''}>
@@ -866,6 +879,15 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                   {linkifyText(profile.bio)}
                 </p>
               )}
+              {(profile.shareId || userId) && (
+                <Button
+                  type="button"
+                  onClick={() => navigate(`/book/${encodeURIComponent(profile.shareId || userId || '')}`)}
+                >
+                  <Calendar className="h-4 w-4" />
+                  {ownsProfile && canInstruct ? 'RSVPs' : 'Bookings'}
+                </Button>
+              )}
               {profile.venmoUsername && (
                 <div className="pt-2">
                   <div className="flex items-center gap-2">
@@ -966,6 +988,11 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                         <div className="text-sm">
                           <p className="text-muted-foreground">{event.location}</p>
                           {event.description && <p className="mt-1">{event.description}</p>}
+                          {event.minRsvps ? (
+                            <p className="mt-1 text-muted-foreground">
+                              Needs {event.minRsvps} RSVPs, or cancels {event.cancelHoursBefore || 12} hours before
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -993,6 +1020,11 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                         <div className="text-sm">
                           <p className="text-muted-foreground">{event.location}</p>
                           {event.description && <p className="mt-1">{event.description}</p>}
+                          {event.minRsvps ? (
+                            <p className="mt-1 text-muted-foreground">
+                              Needs {event.minRsvps} RSVPs, or cancels {event.cancelHoursBefore || 12} hours before
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -1199,6 +1231,8 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* Logout Button (Not in Viewer Mode) */}
       {!isViewerMode && onSignOut && (

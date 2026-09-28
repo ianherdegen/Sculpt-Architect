@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   profile_photo_url TEXT,
   spotify_playlist_urls TEXT NOT NULL DEFAULT '[]',
   is_banned INTEGER NOT NULL DEFAULT 0,
+  view_mode TEXT NOT NULL DEFAULT 'student',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -74,6 +75,21 @@ CREATE TABLE IF NOT EXISTS sequences (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS class_rsvps (
+  id TEXT PRIMARY KEY,
+  profile_user_id TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  class_date TEXT NOT NULL,
+  email TEXT NOT NULL,
+  title TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  location TEXT NOT NULL,
+  user_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(profile_user_id, event_id, class_date, email)
+);
+
 CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_share_id ON user_profiles(share_id);
 CREATE INDEX IF NOT EXISTS idx_poses_author_id ON poses(author_id);
@@ -82,3 +98,16 @@ CREATE INDEX IF NOT EXISTS idx_pose_variations_author_id ON pose_variations(auth
 CREATE INDEX IF NOT EXISTS idx_sequences_user_id ON sequences(user_id);
 CREATE INDEX IF NOT EXISTS idx_sequences_share_id ON sequences(share_id);
 CREATE INDEX IF NOT EXISTS idx_magic_tokens_token ON magic_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_class_rsvps_profile_email ON class_rsvps(profile_user_id, email);
+
+CREATE TABLE IF NOT EXISTS class_occurrence_decisions (
+  id TEXT PRIMARY KEY,
+  profile_user_id TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  class_date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  rsvp_count INTEGER NOT NULL,
+  min_rsvps INTEGER NOT NULL,
+  decided_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(profile_user_id, event_id, class_date)
+);

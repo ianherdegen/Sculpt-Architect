@@ -22,6 +22,7 @@ export interface UpdateUserProfileInput {
   profile_photo_url?: string | null
   spotify_playlist_urls?: string[] | null
   is_banned?: boolean
+  view_mode?: 'instructor' | 'student'
 }
 
 export const userProfileService = {

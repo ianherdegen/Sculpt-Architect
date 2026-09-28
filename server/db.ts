@@ -40,6 +40,24 @@ export function getDb(): Client {
   return client
 }
 
+let columnsReady = false
+
+async function addColumn(db: Client, table: string, column: string, definition: string) {
+  try {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (!/duplicate column/i.test(message)) throw err
+  }
+}
+
+export async function ensureProfileColumns() {
+  if (columnsReady) return
+  const db = getDb()
+  await addColumn(db, 'user_profiles', 'view_mode', `TEXT NOT NULL DEFAULT 'student'`)
+  columnsReady = true
+}
+
 export function resetDb() {
   try {
     client?.close?.()
@@ -84,6 +102,7 @@ export function formatUserProfile(row: Record<string, unknown>) {
     profile_photo_url: (row.profile_photo_url as string) || null,
     spotify_playlist_urls: parseJson<string[]>(row.spotify_playlist_urls, []),
     is_banned: rowToBool(row.is_banned),
+    view_mode: resolveViewMode(row),
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   }
@@ -119,6 +138,18 @@ export function formatSequence(row: Record<string, unknown>) {
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   }
+}
+
+export const PROTECTED_INSTRUCTOR_EMAIL = 'ian.herdegen@gmail.com'
+
+export function isProtectedInstructor(email: unknown) {
+  return String(email || '').toLowerCase() === PROTECTED_INSTRUCTOR_EMAIL
+}
+
+export function resolveViewMode(row: Record<string, unknown>) {
+  const permissions = parseJson<Record<string, boolean>>(row.permissions, {})
+  if (row.view_mode === 'instructor' && permissions.instructor === true) return 'instructor'
+  return 'student'
 }
 
 export async function hasPermission(userId: string, permissionKey: string): Promise<boolean> {

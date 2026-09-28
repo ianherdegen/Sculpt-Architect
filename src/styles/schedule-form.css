@@ -1,0 +1,47 @@
+/* The add-event dialog uses the peach page background, which matches
+   the default field fill. White fields keep labels, typed text, and
+   native date/time controls readable in both class and event forms.
+   The dialog stays inside the screen; the form body scrolls. */
+.schedule-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+}
+
+.schedule-form [data-slot="dialog-header"],
+.schedule-form [data-slot="dialog-footer"] {
+  flex-shrink: 0;
+}
+
+.schedule-form-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+}
+.schedule-form [data-slot="input"],
+.schedule-form [data-slot="textarea"],
+.schedule-form [data-slot="select-trigger"] {
+  background-color: #ffffff;
+  color: var(--foreground);
+  color-scheme: light;
+}
+
+.schedule-form [data-slot="input"]::placeholder,
+.schedule-form [data-slot="textarea"]::placeholder {
+  color: var(--muted-foreground);
+}
+
+.schedule-form [data-slot="input"]::-webkit-datetime-edit,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-fields-wrapper,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-text,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-hour-field,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-minute-field,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-ampm-field,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-day-field,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-month-field,
+.schedule-form [data-slot="input"]::-webkit-datetime-edit-year-field {
+  color: var(--foreground);
+}

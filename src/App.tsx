@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useLocation, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { PoseLibrary } from './components/PoseLibrary';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { SequenceLibrary } from './components/SequenceLibrary';
@@ -8,11 +8,14 @@ import { AuthPage } from './components/AuthPage';
 import { MagicLinkVerify } from './components/MagicLinkVerify';
 import { Profile } from './components/Profile';
 import { PublicProfile } from './components/PublicProfile';
+import { BookingPage } from './components/BookingPage';
 import { AdminPage } from './components/AdminPage';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
 import type { Sequence as DBSequence } from './lib/supabase';
 import { useAuth } from './lib/auth';
+import { useViewMode } from './lib/viewMode';
+import { ViewModeSwitch } from './components/ViewModeSwitch';
 import { Dumbbell, ListOrdered, BookOpen, User, Home, Heart } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
@@ -39,6 +42,8 @@ function PageTitle() {
         return 'Profile | Sculpt Architect';
       } else if (path.startsWith('/profile/')) {
         return 'Public Profile | Sculpt Architect';
+      } else if (path.startsWith('/book/')) {
+        return 'Bookings | Sculpt Architect';
       }
       
       return 'Sculpt Architect | Home';
@@ -143,6 +148,43 @@ function NavTabs({ location, isSmallScreen }: { location: ReturnType<typeof useL
       </TabsList>
     </Tabs>
   );
+}
+
+function safeReturnPath(value: string | null) {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null;
+  return value;
+}
+
+function HomeRoute() {
+  const { user } = useAuth();
+  const { mode, loading } = useViewMode();
+  const [params] = useSearchParams();
+
+  if (!user) return <AuthPage />;
+
+  const returnTo = safeReturnPath(params.get('return'));
+  if (returnTo) return <Navigate to={returnTo} replace />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+  return <Navigate to={mode === 'student' ? '/profile' : '/sequence-library'} replace />;
+}
+
+function InstructorOnly({ children }: { children: React.ReactNode }) {
+  const { mode, canInstruct, loading } = useViewMode();
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+  if (!canInstruct || mode === 'student') return <Navigate to="/profile" replace />;
+  return <>{children}</>;
 }
 
 function ProfileRoute({ signOut, userEmail, userId }: { signOut: () => Promise<void>, userEmail: string, userId: string }) {
@@ -330,6 +372,7 @@ function PublicProfileRoute() {
 
 function AppLayout({ children }: { children?: React.ReactNode }) {
   const { user, signOut } = useAuth();
+  const { mode, canInstruct } = useViewMode();
   const location = useLocation();
   const isMobile = useIsMobile();
   const [isSmallScreen, setIsSmallScreen] = useState(false);
@@ -355,7 +398,7 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
               <h1 className="text-xl font-light tracking-widest uppercase">SCULPT ARCHITECT</h1>
             </div>
           </div>
-          {isProfilePage ? (
+          {isProfilePage && mode !== 'student' && (
             <div className="absolute left-4 top-1/2 -translate-y-1/2">
               <Link to="/sequence-library">
                 <Button variant="ghost" size="sm">
@@ -363,15 +406,8 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
                 </Button>
               </Link>
             </div>
-          ) : !isAdminPage ? (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              <Link to="/profile">
-                <Button variant="ghost" size="sm">
-                  <User className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          ) : (
+          )}
+          {user && !isProfilePage && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
               <Link to="/profile">
                 <Button variant="ghost" size="sm">
@@ -385,7 +421,12 @@ function AppLayout({ children }: { children?: React.ReactNode }) {
       <div className="container max-w-2xl mx-auto flex-1">
         <div className={`${isSmallScreen ? 'py-4 px-4' : 'py-6'}`}>
           {/* Navigation */}
-          {!isProfilePage && !isAdminPage && (
+          {user && canInstruct && (
+            <div className="flex mb-4" style={{ justifyContent: 'flex-end' }}>
+              <ViewModeSwitch />
+            </div>
+          )}
+          {!isProfilePage && !isAdminPage && mode !== 'student' && (
             <NavTabs location={location} isSmallScreen={isSmallScreen} />
           )}
           {children}
@@ -808,13 +849,7 @@ export default function App() {
       <Routes>
         <Route 
           path="/" 
-          element={
-          !user ? (
-            <AuthPage />
-          ) : (
-            <Navigate to="/sequence-library" replace />
-          )
-        } 
+          element={<HomeRoute />} 
       />
       <Route
         path="/auth/verify"
@@ -826,6 +861,7 @@ export default function App() {
           !user ? (
             <Navigate to="/" replace />
           ) : (
+            <InstructorOnly>
             <AppLayout>
               {loading ? (
                 <div className="text-center py-12">
@@ -844,6 +880,7 @@ export default function App() {
                 />
               )}
             </AppLayout>
+            </InstructorOnly>
           )
         }
       />
@@ -853,6 +890,7 @@ export default function App() {
           !user ? (
             <Navigate to="/" replace />
           ) : (
+            <InstructorOnly>
             <AppLayout>
               {loading ? (
                 <div className="text-center py-12">
@@ -869,6 +907,7 @@ export default function App() {
                 />
               )}
             </AppLayout>
+            </InstructorOnly>
           )
         }
       />
@@ -882,6 +921,7 @@ export default function App() {
           !user ? (
             <Navigate to="/" replace />
           ) : (
+            <InstructorOnly>
             <AppLayout>
               {loading ? (
                 <div className="text-center py-12">
@@ -936,6 +976,7 @@ export default function App() {
                 />
               )}
             </AppLayout>
+            </InstructorOnly>
           )
         }
       />
@@ -964,6 +1005,10 @@ export default function App() {
       <Route
         path="/profile/:shareId"
         element={<PublicProfileRoute />}
+      />
+      <Route
+        path="/book/:shareId"
+        element={<BookingPage />}
       />
       <Route
         path="/sequence/:id"

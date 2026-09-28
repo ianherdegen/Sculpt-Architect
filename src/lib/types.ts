@@ -44,6 +44,8 @@ export interface ClassEvent {
   location: string
   description?: string
   isRecurring: boolean
+  minRsvps?: number
+  cancelHoursBefore?: number
 }
 
 export interface UserProfile {
@@ -58,6 +60,7 @@ export interface UserProfile {
   profile_photo_url?: string | null
   spotify_playlist_urls?: string[] | null
   is_banned?: boolean
+  view_mode?: 'instructor' | 'student'
   permissions?: Record<string, boolean>
   created_at: string
   updated_at: string

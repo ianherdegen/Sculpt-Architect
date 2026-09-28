@@ -3,6 +3,7 @@ import { api } from './apiClient'
 export type PermissionKey = 'pose_library' | 'pose_management' | 'update_all' | 'delete_all' | 'admin' | string
 
 export interface UserPermissions {
+  instructor?: boolean
   pose_library?: boolean
   pose_management?: boolean
   update_all?: boolean

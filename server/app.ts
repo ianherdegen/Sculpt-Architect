@@ -10,6 +10,8 @@ import {
   boolToInt,
   hasPermission,
   isAdmin,
+  isProtectedInstructor,
+  ensureProfileColumns,
 } from './db.js'
 import {
   createToken,
@@ -22,6 +24,18 @@ import {
 import { requireAuth } from './middleware.js'
 import { findSequencesUsingVariation } from './variationCheck.js'
 import { uploadFile, deleteFileByUrl } from './storage.js'
+import {
+  cancelRsvp,
+  createRsvp,
+  ensureBookingSchema,
+  getBookableProfile,
+  getViewMode,
+  listMyRsvps,
+  listOccurrenceStatuses,
+  listReceivedRsvps,
+  listRsvps,
+  mergeClassRequirements,
+} from './booking.js'
 
 type Env = {
   Variables: {
@@ -36,6 +50,13 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 }))
+
+app.use('*', async (c, next) => {
+  if (c.req.method === 'OPTIONS') return next()
+  await ensureProfileColumns()
+  await ensureBookingSchema()
+  await next()
+})
 
 app.onError((err, c) => {
   console.error('API error:', err)
@@ -113,7 +134,7 @@ app.post('/api/auth/signup', async (c) => {
       args: [userId, email.toLowerCase(), passwordHash],
     },
     {
-      sql: `INSERT INTO user_profiles (id, user_id, email, share_id) VALUES (?, ?, ?, ?)`,
+      sql: `INSERT INTO user_profiles (id, user_id, email, share_id, view_mode) VALUES (?, ?, ?, ?, 'student')`,
       args: [profileId, userId, email.toLowerCase(), userId],
     },
   ])
@@ -179,7 +200,7 @@ app.post('/api/auth/magic-link', async (c) => {
         args: [userId, email.toLowerCase(), passwordHash],
       },
       {
-        sql: `INSERT INTO user_profiles (id, user_id, email, share_id) VALUES (?, ?, ?, ?)`,
+        sql: `INSERT INTO user_profiles (id, user_id, email, share_id, view_mode) VALUES (?, ?, ?, ?, 'student')`,
         args: [profileId, userId, email.toLowerCase(), userId],
       },
     ])
@@ -617,6 +638,82 @@ app.post('/api/sequences/reorder', requireAuth, async (c) => {
 })
 
 // ============================================================================
+// Class booking (logged-in student RSVPs)
+// ============================================================================
+
+app.get('/api/book/received', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (!(await hasPermission(user.id, 'instructor'))) {
+    return c.json({ error: 'Instructor access required.' }, 403)
+  }
+  const rsvps = await listReceivedRsvps(user.id)
+  return c.json({ rsvps })
+})
+
+app.get('/api/book/mine', requireAuth, async (c) => {
+  const user = c.get('user')
+  const rsvps = await listMyRsvps(user.id, user.email.toLowerCase())
+  return c.json({ rsvps })
+})
+
+app.get('/api/book/:shareId/occurrences', async (c) => {
+  const profile = await getBookableProfile(c.req.param('shareId'))
+  if (!profile) return c.json({ error: 'Profile not found' }, 404)
+  const occurrences = await listOccurrenceStatuses(profile.userId, profile.events)
+  return c.json({ occurrences })
+})
+
+app.get('/api/book/:shareId/rsvps', requireAuth, async (c) => {
+  const user = c.get('user')
+  const profile = await getBookableProfile(c.req.param('shareId'))
+  if (!profile) return c.json({ error: 'Profile not found' }, 404)
+
+  const rsvps = await listRsvps(profile.userId, user.id, user.email.toLowerCase())
+  return c.json({ rsvps })
+})
+
+app.post('/api/book/:shareId/rsvps', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (await getViewMode(user.id) !== 'student') {
+    return c.json({ error: 'Switch to Student to book a class.' }, 403)
+  }
+  const body = await c.req.json<{ eventId?: string; classDate?: string }>()
+  if (!body.eventId || !body.classDate) {
+    return c.json({ error: 'Class is required' }, 400)
+  }
+
+  const profile = await getBookableProfile(c.req.param('shareId'))
+  if (!profile) return c.json({ error: 'Profile not found' }, 404)
+  if (profile.userId === user.id) {
+    return c.json({ error: 'You can’t book your own class.' }, 403)
+  }
+
+  const result = await createRsvp(profile, { id: user.id, email: user.email.toLowerCase() }, body.eventId, body.classDate)
+  if ('error' in result) return c.json({ error: result.error }, result.status)
+  return c.json({ rsvp: result.rsvp }, 201)
+})
+
+app.post('/api/book/:shareId/rsvps/cancel', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (await getViewMode(user.id) !== 'student') {
+    return c.json({ error: 'Switch to Student to change a booking.' }, 403)
+  }
+  const body = await c.req.json<{ eventId?: string; classDate?: string }>()
+  if (!body.eventId || !body.classDate) {
+    return c.json({ error: 'Class is required' }, 400)
+  }
+
+  const profile = await getBookableProfile(c.req.param('shareId'))
+  if (!profile) return c.json({ error: 'Profile not found' }, 404)
+  if (profile.userId === user.id) {
+    return c.json({ error: 'You can’t book your own class.' }, 403)
+  }
+
+  await cancelRsvp(profile.userId, { id: user.id, email: user.email.toLowerCase() }, body.eventId, body.classDate)
+  return c.json({ success: true })
+})
+
+// ============================================================================
 // User Profiles
 // ============================================================================
 
@@ -690,16 +787,31 @@ app.patch('/api/profiles/me', requireAuth, async (c) => {
   const body = await c.req.json<Record<string, unknown>>()
   const db = getDb()
 
+  let viewMode = body.view_mode === 'student' || body.view_mode === 'instructor' ? body.view_mode : undefined
+  if (viewMode === 'instructor' && !(await hasPermission(user.id, 'instructor'))) {
+    return c.json({ error: 'Instructor access required.' }, 403)
+  }
+
   const fieldMap: Record<string, unknown> = {
     name: body.name,
     bio: body.bio,
     email: body.email,
-    events: body.events !== undefined ? JSON.stringify(body.events) : undefined,
+    events: body.events !== undefined
+      ? JSON.stringify(mergeClassRequirements(
+          parseJson((await db.execute({
+            sql: 'SELECT events FROM user_profiles WHERE user_id = ?',
+            args: [user.id],
+          })).rows[0]?.events, []),
+          body.events,
+          await isAdmin(user.id),
+        ))
+      : undefined,
     share_id: body.share_id,
     venmo_username: body.venmo_username,
     profile_photo_url: body.profile_photo_url,
     spotify_playlist_urls: body.spotify_playlist_urls !== undefined ? JSON.stringify(body.spotify_playlist_urls) : undefined,
     is_banned: body.is_banned !== undefined ? boolToInt(!!body.is_banned) : undefined,
+    view_mode: viewMode,
   }
 
   const updates: string[] = []
@@ -810,6 +922,7 @@ app.get('/api/admin/users', requireAuth, async (c) => {
   const users = result.rows.map((row) => ({
     ...formatUserProfile(row),
     email: row.user_email as string || row.email as string,
+    instructor_locked: isProtectedInstructor(row.user_email || row.email),
   }))
 
   return c.json(users)
@@ -824,10 +937,23 @@ app.patch('/api/admin/users/:userId/permissions', requireAuth, async (c) => {
   const userId = c.req.param('userId')
   const { permissions } = await c.req.json<{ permissions: Record<string, boolean> }>()
   const db = getDb()
+  const target = await db.execute({
+    sql: 'SELECT email FROM users WHERE id = ?',
+    args: [userId],
+  })
+  const nextPermissions = { ...(permissions || {}) }
+  if (isProtectedInstructor(target.rows[0]?.email)) {
+    nextPermissions.instructor = true
+  }
 
+  const instructorAllowed = nextPermissions.instructor === true
   await db.execute({
-    sql: `UPDATE user_profiles SET permissions = ?, updated_at = datetime('now') WHERE user_id = ?`,
-    args: [JSON.stringify(permissions), userId],
+    sql: `UPDATE user_profiles
+          SET permissions = ?,
+              view_mode = CASE WHEN ? THEN view_mode ELSE 'student' END,
+              updated_at = datetime('now')
+          WHERE user_id = ?`,
+    args: [JSON.stringify(nextPermissions), instructorAllowed ? 1 : 0, userId],
   })
 
   return c.json({ success: true })

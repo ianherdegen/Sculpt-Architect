@@ -14,9 +14,11 @@ import { useIsMobile } from './ui/use-mobile';
 
 interface UserWithPermissions extends UserProfile {
   permissions: Record<string, boolean>;
+  instructor_locked?: boolean;
 }
 
 const PERMISSION_KEYS: PermissionKey[] = [
+  'instructor',
   'pose_library',
   'pose_management',
   'update_all',
@@ -24,6 +26,7 @@ const PERMISSION_KEYS: PermissionKey[] = [
 ];
 
 const PERMISSION_LABELS: Record<PermissionKey, string> = {
+  instructor: 'Instructor',
   pose_library: 'Pose Library',
   pose_management: 'Pose Management',
   update_all: 'Update All',
@@ -227,8 +230,8 @@ export function AdminPage() {
                     {PERMISSION_KEYS.map(permissionKey => (
                       <TableCell key={permissionKey} className="text-center">
                         <Checkbox
-                          checked={user.permissions[permissionKey] === true}
-                          disabled={saving === user.user_id}
+                          checked={user.permissions[permissionKey] === true || (permissionKey === 'instructor' && user.instructor_locked)}
+                          disabled={saving === user.user_id || (permissionKey === 'instructor' && user.instructor_locked)}
                           onCheckedChange={(checked) => 
                             handlePermissionToggle(user.user_id, permissionKey, checked === true)
                           }

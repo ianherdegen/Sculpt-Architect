@@ -365,8 +365,8 @@ export function BookingPage() {
                             <RunStatusLine status={status} />
                           </div>
                           {cancelledClass ? null : canBook && going ? (
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-3">
+                            <div className="space-y-2">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="inline-flex items-center gap-1 text-sm font-medium">
                                   <Check className="h-4 w-4" />
                                   Going
@@ -375,6 +375,7 @@ export function BookingPage() {
                                   type="button"
                                   variant="outline"
                                   size="sm"
+                                  className="w-full sm:w-auto"
                                   disabled={busyKey === key}
                                   onClick={() => cancel(item.eventId, item.date)}
                                 >
@@ -397,6 +398,7 @@ export function BookingPage() {
                             <Button
                               type="button"
                               size="sm"
+                              className="w-full sm:w-auto"
                               disabled={busyKey === key}
                               onClick={() => reserve(item)}
                             >

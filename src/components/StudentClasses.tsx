@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { bookingService, formatClassDate, formatClassTime, localToday, type ClassRsvp } from '../lib/booking'
 import { calendarDescription } from '../lib/classCalendar'
 import { AddToCalendar } from './AddToCalendar'
+import { Button } from './ui/button'
 import { ApiError } from '../lib/apiClient'
 
 export function StudentClasses() {
@@ -49,7 +50,17 @@ export function StudentClasses() {
         {upcoming.length === 0 ? (
           <p className="text-sm text-muted-foreground">No upcoming classes. Open an instructor profile to book.</p>
         ) : (
-          upcoming.map((rsvp) => <ClassRow key={rsvp.id} rsvp={rsvp} />)
+          upcoming.map((rsvp) => (
+            <ClassRow
+              key={rsvp.id}
+              rsvp={rsvp}
+              onCancel={async (item) => {
+                if (!item.instructorShareId) return
+                await bookingService.cancel(item.instructorShareId, item.eventId, item.classDate)
+                setRsvps((current) => current.filter((row) => row.id !== item.id))
+              }}
+            />
+          ))
         )}
       </div>
       <div className="space-y-2">
@@ -64,38 +75,70 @@ export function StudentClasses() {
   )
 }
 
-function ClassRow({ rsvp }: { rsvp: ClassRsvp }) {
+function ClassRow({
+  rsvp,
+  onCancel,
+}: {
+  rsvp: ClassRsvp
+  onCancel?: (rsvp: ClassRsvp) => Promise<void>
+}) {
   const profileLink = rsvp.instructorShareId ? `/book/${rsvp.instructorShareId}` : null
+  const upcoming = rsvp.classDate >= localToday()
+  const [busy, setBusy] = useState(false)
+  const [rowError, setRowError] = useState<string | null>(null)
+
+  const cancel = async () => {
+    if (!onCancel || busy) return
+    setBusy(true)
+    setRowError(null)
+    try {
+      await onCancel(rsvp)
+    } catch (err) {
+      setRowError(err instanceof ApiError ? err.message : 'Could not cancel RSVP.')
+      setBusy(false)
+    }
+  }
+
   return (
-    <div className="p-4 border rounded-lg bg-card">
-      <p className="font-medium">{rsvp.title}</p>
-      {rsvp.cancelled && (
-        <p className="text-sm text-destructive">Cancelled — not enough RSVPs</p>
-      )}
-      <p className="text-sm text-muted-foreground">
-        {formatClassDate(rsvp.classDate)} · {formatClassTime(rsvp.startTime)} – {formatClassTime(rsvp.endTime)}
-      </p>
-      <p className="text-sm text-muted-foreground">{rsvp.location}</p>
-      {!rsvp.cancelled && rsvp.classDate >= localToday() && (
-        <div className="pt-3">
-          <AddToCalendar
-            title={rsvp.title}
-            classDate={rsvp.classDate}
-            startTime={rsvp.startTime}
-            endTime={rsvp.endTime}
-            location={rsvp.location}
-            description={calendarDescription({ instructorName: rsvp.instructorName })}
-          />
+    <div className="p-3 sm:p-4 border rounded-lg bg-card space-y-2">
+      <div>
+        <p className="font-medium">{rsvp.title}</p>
+        {rsvp.cancelled && (
+          <p className="text-sm text-destructive">Cancelled — not enough RSVPs</p>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {formatClassDate(rsvp.classDate)} · {formatClassTime(rsvp.startTime)} – {formatClassTime(rsvp.endTime)}
+        </p>
+        <p className="text-sm text-muted-foreground">{rsvp.location}</p>
+        {rsvp.instructorName && (
+          profileLink ? (
+            <Link to={profileLink} className="text-sm text-primary hover:underline">
+              {rsvp.instructorName}
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground">{rsvp.instructorName}</p>
+          )
+        )}
+      </div>
+      {upcoming && (
+        <div className="space-y-2">
+          {!rsvp.cancelled && (
+            <AddToCalendar
+              title={rsvp.title}
+              classDate={rsvp.classDate}
+              startTime={rsvp.startTime}
+              endTime={rsvp.endTime}
+              location={rsvp.location}
+              description={calendarDescription({ instructorName: rsvp.instructorName })}
+            />
+          )}
+          {onCancel && rsvp.instructorShareId && (
+            <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={busy} onClick={cancel}>
+              Cancel RSVP
+            </Button>
+          )}
+          {rowError && <p className="text-sm text-destructive">{rowError}</p>}
         </div>
-      )}
-      {rsvp.instructorName && (
-        profileLink ? (
-          <Link to={profileLink} className="text-sm text-primary hover:underline">
-            {rsvp.instructorName}
-          </Link>
-        ) : (
-          <p className="text-sm text-muted-foreground">{rsvp.instructorName}</p>
-        )
       )}
     </div>
   )

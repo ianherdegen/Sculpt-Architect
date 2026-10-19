@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Label } from './ui/label'
-import { Switch } from './ui/switch'
 import { userProfileService } from '../lib/userProfileService'
 import { ApiError } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
@@ -11,7 +9,7 @@ export function ClassReminderSettings() {
   const [dayBefore, setDayBefore] = useState(true)
   const [twoHours, setTwoHours] = useState(true)
   const [ready, setReady] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [pending, setPending] = useState<{ day: boolean; hours: boolean }>({ day: false, hours: false })
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -35,53 +33,86 @@ export function ClassReminderSettings() {
     }
   }, [])
 
-  const save = async (next: { notify_day_before?: boolean; notify_two_hours?: boolean }) => {
-    if (!user) return
-    const previous = { dayBefore, twoHours }
-    if (next.notify_day_before !== undefined) setDayBefore(next.notify_day_before)
-    if (next.notify_two_hours !== undefined) setTwoHours(next.notify_two_hours)
-    setSaving(true)
+  const save = async (field: 'day' | 'hours', value: boolean) => {
+    if (!user || pending[field]) return
+    if (field === 'day') setDayBefore(value)
+    else setTwoHours(value)
+    setPending((current) => ({ ...current, [field]: true }))
     setError(null)
     try {
-      await userProfileService.update(user.id, next)
+      await userProfileService.update(
+        user.id,
+        field === 'day' ? { notify_day_before: value } : { notify_two_hours: value },
+      )
     } catch (err) {
-      setDayBefore(previous.dayBefore)
-      setTwoHours(previous.twoHours)
+      if (field === 'day') setDayBefore(!value)
+      else setTwoHours(!value)
       setError(err instanceof ApiError ? err.message : 'Could not save reminder settings.')
     } finally {
-      setSaving(false)
+      setPending((current) => ({ ...current, [field]: false }))
     }
   }
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="px-4 pt-6 pb-2">
         <CardTitle>Class reminders</CardTitle>
-        <CardDescription>
-          Emails for classes you reserve. Both are on until you turn one off.
-        </CardDescription>
+        <CardDescription>Tap a row to turn that email on or off.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2 px-4 pb-6">
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="remind-day">1 day before</Label>
-          <Switch
-            id="remind-day"
-            checked={dayBefore}
-            disabled={!ready || saving || !user}
-            onCheckedChange={(checked) => save({ notify_day_before: checked })}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="remind-soon">2 hours before</Label>
-          <Switch
-            id="remind-soon"
-            checked={twoHours}
-            disabled={!ready || saving || !user}
-            onCheckedChange={(checked) => save({ notify_two_hours: checked })}
-          />
-        </div>
+        <ReminderToggle
+          title="1 day before"
+          detail="Email about a day before class."
+          checked={dayBefore}
+          pending={!ready || pending.day}
+          onToggle={() => save('day', !dayBefore)}
+        />
+        <ReminderToggle
+          title="2 hours before"
+          detail="Email about two hours before class."
+          checked={twoHours}
+          pending={!ready || pending.hours}
+          onToggle={() => save('hours', !twoHours)}
+        />
       </CardContent>
     </Card>
+  )
+}
+
+function ReminderToggle({
+  title,
+  detail,
+  checked,
+  pending,
+  onToggle,
+}: {
+  title: string
+  detail: string
+  checked: boolean
+  pending: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={`${title}, ${checked ? 'on' : 'off'}`}
+      onClick={onToggle}
+      className="flex w-full min-h-11 items-center gap-3 rounded-lg border bg-background px-3 py-2 text-left hover:bg-accent"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted-foreground">{detail}</span>
+      </span>
+      <span
+        className={`inline-flex h-8 min-w-16 shrink-0 items-center justify-center rounded-full px-3 text-sm font-medium ${
+          checked ? 'bg-primary text-primary-foreground' : 'border bg-muted text-muted-foreground'
+        } ${pending ? 'opacity-70' : ''}`}
+      >
+        {checked ? 'On' : 'Off'}
+      </span>
+    </button>
   )
 }

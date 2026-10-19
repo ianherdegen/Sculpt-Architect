@@ -85,21 +85,15 @@ async function ensureCalendarToken(rsvp) {
   return (result.rows[0]?.calendar_token as string) || token
 }
 
-function reminderCopy(kind) {
-  if (kind === 'day') {
-    return {
-      subjectPrefix: 'Class tomorrow',
-      lead: 'Your class is tomorrow.',
-    }
-  }
+function reminderCopy(classDate, startTime, title) {
+  const starts = `${formatWallDate(classDate)} at ${formatWallTime(startTime)}`
   return {
-    subjectPrefix: 'Class in 2 hours',
-    lead: 'Your class starts in about 2 hours.',
+    subject: `${starts}: ${title}`,
+    lead: `Your class is coming up at ${formatWallTime(startTime)} Eastern Time.`,
   }
 }
 
-function reminderHtml({ kind, title, when, location, instructorName, googleUrl, icsUrl }) {
-  const copy = reminderCopy(kind)
+function reminderHtml({ lead, title, when, location, instructorName, googleUrl, icsUrl }) {
   const buttons = []
   if (googleUrl) {
     buttons.push(`<a href="${escapeHtml(googleUrl)}" style="display:inline-block;padding:12px 18px;background:#030213;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">Google Calendar</a>`)
@@ -111,7 +105,7 @@ function reminderHtml({ kind, title, when, location, instructorName, googleUrl, 
     ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
     : ''
   return `
-    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">${escapeHtml(copy.lead)}</h2>
+    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">${escapeHtml(lead)}</h2>
     <p style="color:#030213;font-size:18px;font-weight:600;margin:0 0 8px;">${escapeHtml(title)}</p>
     <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
     <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
@@ -224,6 +218,7 @@ export async function sendDueClassReminders(options = {}) {
   const dryRun = options.dryRun === true
   const reset = options.reset === true
   const includeLinks = options.includeLinks === true
+  const onlyEmail = options.onlyEmail ? String(options.onlyEmail).trim().toLowerCase() : ''
   const fromYmd = addDays(zonedToday(now), -1)
   const toYmd = addDays(zonedToday(now), 2)
   const db = getDb()
@@ -253,6 +248,7 @@ export async function sendDueClassReminders(options = {}) {
   const errors = []
 
   for (const rsvp of rsvpResult.rows) {
+    if (onlyEmail && String(rsvp.email).toLowerCase() !== onlyEmail) continue
     if (rsvp.decision_status === 'cancelled') {
       skipped.push({ id: rsvp.id, reason: 'cancelled' })
       continue
@@ -290,7 +286,7 @@ export async function sendDueClassReminders(options = {}) {
         skipped.push({ id: rsvp.id, kind, reason: 'preference off' })
         continue
       }
-      const copy = reminderCopy(kind)
+      const copy = reminderCopy(rsvp.class_date, rsvp.start_time, rsvp.title)
       const when = `${formatWallDate(rsvp.class_date)} · ${formatWallTime(rsvp.start_time)} – ${formatWallTime(rsvp.end_time)}`
       const entry = {
         email: rsvp.email,
@@ -298,7 +294,8 @@ export async function sendDueClassReminders(options = {}) {
         title: rsvp.title,
         classDate: rsvp.class_date,
         startTime: rsvp.start_time,
-        subject: `${copy.subjectPrefix}: ${rsvp.title}`,
+        subject: copy.subject,
+        lead: copy.lead,
       }
 
       if (dryRun) {
@@ -328,7 +325,7 @@ export async function sendDueClassReminders(options = {}) {
         const icsUrl = `${appOrigin()}/api/calendar/${token}`
         const ics = buildIcs(item)
         const html = reminderHtml({
-          kind,
+          lead: copy.lead,
           title: rsvp.title,
           when,
           location: rsvp.location,

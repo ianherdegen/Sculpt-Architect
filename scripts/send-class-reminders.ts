@@ -5,11 +5,13 @@
  *   yarn reminders --dry-run       show what would send, without emailing
  *   yarn reminders --now=2026-10-19T22:00:00.000Z
  *   yarn reminders --now=... --reset
+ *   yarn reminders --now=... --reset --to=person@example.com
  *
  * --now pretends the current time is that UTC instant, so you can trigger
  * the 1-day window (22–26 hours before start) or the 2-hour window
  * (30 minutes–2.75 hours before start) without waiting.
  * --reset clears the "already sent" mark for reminders due at that time.
+ * --to limits the run to one RSVP email.
  *
  * Requires TURSO_DATABASE_URL. Real email also needs RESEND_API_KEY and EMAIL_FROM.
  */
@@ -33,6 +35,7 @@ const result = await sendDueClassReminders({
   dryRun: process.argv.includes('--dry-run'),
   reset: process.argv.includes('--reset'),
   includeLinks: true,
+  onlyEmail: flagValue('to'),
 })
 
 console.log(JSON.stringify(result, null, 2))

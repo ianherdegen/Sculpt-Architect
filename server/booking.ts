@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { getDb, parseJson, resolveViewMode, rowToBool } from './db.js'
 import { generateId } from './auth.js'
+import { zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
 
 let schemaReady = false
 
@@ -29,6 +30,12 @@ export async function ensureBookingSchema() {
   `)
   try {
     await db.execute(`ALTER TABLE class_rsvps ADD COLUMN user_id TEXT`)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (!/duplicate column/i.test(message)) throw err
+  }
+  try {
+    await db.execute(`ALTER TABLE class_rsvps ADD COLUMN calendar_token TEXT`)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     if (!/duplicate column/i.test(message)) throw err
@@ -194,7 +201,6 @@ export async function listRsvps(profileUserId: string, userId: string, email: st
   return result.rows.map((row) => formatRsvp(row))
 }
 
-const CLASS_TIME_ZONE = 'America/Detroit'
 const DEFAULT_CANCEL_HOURS = 12
 
 function positiveInt(value: unknown, max = 999) {
@@ -242,46 +248,6 @@ export function mergeClassRequirements(previousEvents: any[], nextEvents: any[],
     next.cancelHoursBefore = requirement.hours
     return next
   })
-}
-
-function zonedToday(now = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: CLASS_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now)
-}
-
-function zonedWallTimeToUtc(ymd: string, time: string) {
-  const match = /^(\d{1,2}):(\d{2})/.exec(time || '')
-  if (!match || !parseYmd(ymd)) return null
-  const [year, month, day] = ymd.split('-').map(Number)
-  const hour = Number(match[1])
-  const minute = Number(match[2])
-  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0)
-  const parts: Record<string, string> = {}
-  for (const part of new Intl.DateTimeFormat('en-US', {
-    timeZone: CLASS_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(utcGuess))) {
-    if (part.type !== 'literal') parts[part.type] = part.value
-  }
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  )
-  return new Date(utcGuess - (asUtc - utcGuess))
 }
 
 function occurrenceDates(event: any, fromYmd: string, toYmd: string) {
@@ -454,11 +420,12 @@ export async function createRsvp(profile: { userId: string; events: any[] }, acc
 
   const db = getDb()
   const id = generateId()
+  const calendarToken = generateId()
   try {
     await db.execute({
       sql: `INSERT INTO class_rsvps
-            (id, profile_user_id, event_id, class_date, email, title, start_time, end_time, location, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, profile_user_id, event_id, class_date, email, title, start_time, end_time, location, user_id, calendar_token)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         profile.userId,
@@ -470,15 +437,17 @@ export async function createRsvp(profile: { userId: string; events: any[] }, acc
         event.endTime,
         event.location,
         account.id,
+        calendarToken,
       ],
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     if (!message.includes('UNIQUE')) throw err
     await db.execute({
-      sql: `UPDATE class_rsvps SET user_id = ?
+      sql: `UPDATE class_rsvps
+            SET user_id = ?, calendar_token = COALESCE(calendar_token, ?)
             WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND email = ?`,
-      args: [account.id, profile.userId, eventId, classDate, account.email],
+      args: [account.id, calendarToken, profile.userId, eventId, classDate, account.email],
     })
   }
 

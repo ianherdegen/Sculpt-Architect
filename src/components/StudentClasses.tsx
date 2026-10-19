@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { bookingService, formatClassDate, formatClassTime, localToday, type ClassRsvp } from '../lib/booking'
+import { calendarDescription } from '../lib/classCalendar'
+import { AddToCalendar } from './AddToCalendar'
 import { ApiError } from '../lib/apiClient'
 
 export function StudentClasses() {
@@ -74,6 +76,18 @@ function ClassRow({ rsvp }: { rsvp: ClassRsvp }) {
         {formatClassDate(rsvp.classDate)} · {formatClassTime(rsvp.startTime)} – {formatClassTime(rsvp.endTime)}
       </p>
       <p className="text-sm text-muted-foreground">{rsvp.location}</p>
+      {!rsvp.cancelled && rsvp.classDate >= localToday() && (
+        <div className="pt-3">
+          <AddToCalendar
+            title={rsvp.title}
+            classDate={rsvp.classDate}
+            startTime={rsvp.startTime}
+            endTime={rsvp.endTime}
+            location={rsvp.location}
+            description={calendarDescription({ instructorName: rsvp.instructorName })}
+          />
+        </div>
+      )}
       {rsvp.instructorName && (
         profileLink ? (
           <Link to={profileLink} className="text-sm text-primary hover:underline">

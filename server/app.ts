@@ -36,6 +36,7 @@ import {
   listRsvps,
   mergeClassRequirements,
 } from './booking.js'
+import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders } from './reminders.js'
 
 type Env = {
   Variables: {
@@ -55,6 +56,7 @@ app.use('*', async (c, next) => {
   if (c.req.method === 'OPTIONS') return next()
   await ensureProfileColumns()
   await ensureBookingSchema()
+  await ensureReminderSchema()
   await next()
 })
 
@@ -713,6 +715,41 @@ app.post('/api/book/:shareId/rsvps/cancel', requireAuth, async (c) => {
   return c.json({ success: true })
 })
 
+function cronAuthorized(header: string | undefined) {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return process.env.NODE_ENV !== 'production'
+  return header === `Bearer ${secret}`
+}
+
+app.get('/api/calendar/:token', async (c) => {
+  const ics = await icsForCalendarToken(c.req.param('token'))
+  if (!ics) return c.json({ error: 'Calendar event not found' }, 404)
+  return c.body(ics, 200, {
+    'Content-Type': 'text/calendar; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="class.ics"',
+    'Cache-Control': 'no-store',
+  })
+})
+
+app.get('/api/cron/class-reminders', async (c) => {
+  if (!cronAuthorized(c.req.header('authorization'))) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  const nowQuery = c.req.query('now')
+  if (nowQuery && process.env.NODE_ENV === 'production' && process.env.ALLOW_REMINDER_TIME_OVERRIDE !== '1') {
+    return c.json({ error: 'Time override is disabled.' }, 400)
+  }
+  const now = nowQuery ? new Date(nowQuery) : new Date()
+  if (Number.isNaN(now.getTime())) return c.json({ error: 'Invalid now value' }, 400)
+  const result = await sendDueClassReminders({
+    now,
+    dryRun: c.req.query('dryRun') === '1',
+    reset: c.req.query('reset') === '1' && process.env.NODE_ENV !== 'production',
+    includeLinks: process.env.NODE_ENV !== 'production',
+  })
+  return c.json(result)
+})
+
 // ============================================================================
 // User Profiles
 // ============================================================================
@@ -812,6 +849,8 @@ app.patch('/api/profiles/me', requireAuth, async (c) => {
     spotify_playlist_urls: body.spotify_playlist_urls !== undefined ? JSON.stringify(body.spotify_playlist_urls) : undefined,
     is_banned: body.is_banned !== undefined ? boolToInt(!!body.is_banned) : undefined,
     view_mode: viewMode,
+    notify_day_before: typeof body.notify_day_before === 'boolean' ? boolToInt(body.notify_day_before) : undefined,
+    notify_two_hours: typeof body.notify_two_hours === 'boolean' ? boolToInt(body.notify_two_hours) : undefined,
   }
 
   const updates: string[] = []

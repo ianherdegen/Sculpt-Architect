@@ -23,6 +23,8 @@ export interface UpdateUserProfileInput {
   spotify_playlist_urls?: string[] | null
   is_banned?: boolean
   view_mode?: 'instructor' | 'student'
+  notify_day_before?: boolean
+  notify_two_hours?: boolean
 }
 
 export const userProfileService = {

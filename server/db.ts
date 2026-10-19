@@ -103,6 +103,8 @@ export function formatUserProfile(row: Record<string, unknown>) {
     spotify_playlist_urls: parseJson<string[]>(row.spotify_playlist_urls, []),
     is_banned: rowToBool(row.is_banned),
     view_mode: resolveViewMode(row),
+    notify_day_before: row.notify_day_before == null ? true : rowToBool(row.notify_day_before),
+    notify_two_hours: row.notify_two_hours == null ? true : rowToBool(row.notify_two_hours),
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   }

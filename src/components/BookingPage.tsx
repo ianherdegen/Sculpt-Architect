@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Calendar, Check, Home } from 'lucide-react';
+import { AddToCalendar } from './AddToCalendar';
+import { calendarDescription } from '../lib/classCalendar';
 import { userProfileService } from '../lib/userProfileService';
 import {
   bookingService,
@@ -363,20 +365,33 @@ export function BookingPage() {
                             <RunStatusLine status={status} />
                           </div>
                           {cancelledClass ? null : canBook && going ? (
-                            <div className="flex items-center gap-3">
-                              <span className="inline-flex items-center gap-1 text-sm font-medium">
-                                <Check className="h-4 w-4" />
-                                Going
-                              </span>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={busyKey === key}
-                                onClick={() => cancel(item.eventId, item.date)}
-                              >
-                                Cancel RSVP
-                              </Button>
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <span className="inline-flex items-center gap-1 text-sm font-medium">
+                                  <Check className="h-4 w-4" />
+                                  Going
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={busyKey === key}
+                                  onClick={() => cancel(item.eventId, item.date)}
+                                >
+                                  Cancel RSVP
+                                </Button>
+                              </div>
+                              <AddToCalendar
+                                title={item.title}
+                                classDate={item.date}
+                                startTime={item.startTime}
+                                endTime={item.endTime}
+                                location={item.location}
+                                description={calendarDescription({
+                                  instructorName,
+                                  description: item.description,
+                                })}
+                              />
                             </div>
                           ) : canBook ? (
                             <Button

@@ -80,6 +80,7 @@
         "generate-transitional-cues": "tsx --env-file=.env.local scripts/generate-transitional-cues.ts",
         "migrate-from-supabase": "tsx --env-file=.env.local scripts/migrate-from-supabase.ts",
         "import-pg-backup": "tsx --env-file=.env.local scripts/import-pg-backup.ts",
-        "import-storage": "tsx --env-file=.env.local scripts/import-storage.ts"
+        "import-storage": "tsx --env-file=.env.local scripts/import-storage.ts",
+        "reminders": "tsx --env-file=.env.local scripts/send-class-reminders.ts"
     }
 }

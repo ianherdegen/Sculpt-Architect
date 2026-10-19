@@ -17,6 +17,7 @@ import { usePermission } from '../lib/usePermissions';
 import { useAuth } from '../lib/auth';
 import { useViewMode } from '../lib/viewMode';
 import { StudentClasses } from './StudentClasses';
+import { ClassReminderSettings } from './ClassReminderSettings';
 import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
 
 export interface ClassEvent {
@@ -649,7 +650,10 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       </div>
 
       {showStudentHome ? (
-        <StudentClasses />
+        <div className="space-y-4">
+          <ClassReminderSettings />
+          <StudentClasses />
+        </div>
       ) : (
       <>
       {/* Profile Information */}
@@ -939,6 +943,8 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
           )}
         </CardContent>
       </Card>
+
+      {!isViewerMode && <ClassReminderSettings />}
 
       {/* Schedule */}
       <Card>

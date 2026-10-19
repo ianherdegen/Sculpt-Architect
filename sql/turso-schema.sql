@@ -112,6 +112,23 @@ CREATE TABLE IF NOT EXISTS class_reminder_sends (
   UNIQUE(rsvp_id, kind)
 );
 
+CREATE TABLE IF NOT EXISTS class_locations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  address TEXT NOT NULL DEFAULT '',
+  removed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS instructor_locations (
+  user_id TEXT NOT NULL,
+  location_id TEXT NOT NULL,
+  PRIMARY KEY (user_id, location_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_instructor_locations_location ON instructor_locations(location_id);
+
 CREATE TABLE IF NOT EXISTS class_occurrence_decisions (
   id TEXT PRIMARY KEY,
   profile_user_id TEXT NOT NULL,

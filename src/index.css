@@ -1115,6 +1115,10 @@
     text-align: center;
   }
 
+  .text-left {
+    text-align: left;
+  }
+
   .text-base {
     font-size: var(--text-base);
     line-height: var(--tw-leading, var(--text-base--line-height));
@@ -2182,4 +2186,22 @@ html {
     opacity: var(--tw-exit-opacity, 1);
     transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1)) rotate(var(--tw-exit-rotate, 0));
   }
+}
+
+.admin-panel input:not([type="checkbox"]) {
+  background-color: #fff;
+  color: #241c19;
+  border-color: #7a3426;
+}
+
+.admin-panel input[type="checkbox"] {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: #ff6b4a;
+  flex-shrink: 0;
+}
+
+.admin-panel input::placeholder {
+  color: #5a4038;
 }

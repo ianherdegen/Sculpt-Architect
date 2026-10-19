@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { bookingService, formatClassDate, formatClassTime, localToday, type ClassRsvp } from '../lib/booking'
 import { calendarDescription } from '../lib/classCalendar'
 import { AddToCalendar } from './AddToCalendar'
+import { LocationClasses } from './LocationClasses'
 import { Button } from './ui/button'
 import { ApiError } from '../lib/apiClient'
 
@@ -10,6 +11,14 @@ export function StudentClasses() {
   const [rsvps, setRsvps] = useState<ClassRsvp[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0)
+
+  const refresh = () => {
+    setRevision((current) => current + 1)
+    return bookingService.listMine()
+      .then((list) => setRsvps(list))
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load your classes.'))
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -38,6 +47,7 @@ export function StudentClasses() {
 
   return (
     <section className="space-y-4">
+      <LocationClasses revision={revision} onChanged={refresh} />
       <div>
         <h3 className="font-medium">Your classes</h3>
         <p className="text-sm text-muted-foreground">
@@ -48,7 +58,7 @@ export function StudentClasses() {
       <div className="space-y-2">
         <h4 className="text-sm font-medium">Upcoming</h4>
         {upcoming.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No upcoming classes. Open an instructor profile to book.</p>
+          <p className="text-sm text-muted-foreground">No upcoming classes.</p>
         ) : (
           upcoming.map((rsvp) => (
             <ClassRow
@@ -57,7 +67,7 @@ export function StudentClasses() {
               onCancel={async (item) => {
                 if (!item.instructorShareId) return
                 await bookingService.cancel(item.instructorShareId, item.eventId, item.classDate)
-                setRsvps((current) => current.filter((row) => row.id !== item.id))
+                await refresh()
               }}
             />
           ))

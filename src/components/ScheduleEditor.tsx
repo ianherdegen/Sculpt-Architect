@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -10,6 +10,8 @@ import { Plus, Pencil, Trash2, Calendar, Repeat } from 'lucide-react';
 import { ClassEvent } from './Profile';
 import { useIsMobile } from './ui/use-mobile';
 import { usePermission } from '../lib/usePermissions';
+import { locationService, type Studio } from '../lib/locations';
+import { ApiError } from '../lib/apiClient';
 import '../styles/schedule-form.css';
 
 interface ScheduleEditorProps {
@@ -31,7 +33,10 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [location, setLocation] = useState('');
+  const [locationId, setLocationId] = useState('');
+  const [studios, setStudios] = useState<Studio[]>([]);
+  const [studiosReady, setStudiosReady] = useState(false);
+  const [studioError, setStudioError] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [minRsvps, setMinRsvps] = useState('');
   const [cancelHoursBefore, setCancelHoursBefore] = useState('12');
@@ -46,13 +51,36 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
     { value: 6, label: 'Saturday' },
   ];
 
+  useEffect(() => {
+    let cancelled = false;
+    locationService.mine()
+      .then((list) => {
+        if (!cancelled) setStudios(list);
+      })
+      .catch((err) => {
+        if (!cancelled) setStudioError(err instanceof ApiError ? err.message : 'Could not load studios.');
+      })
+      .finally(() => {
+        if (!cancelled) setStudiosReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (locationId || !editingEvent || studios.length === 0) return;
+    const match = studios.find((studio) => studio.name === editingEvent.location);
+    if (match) setLocationId(match.id);
+  }, [studios, editingEvent, locationId]);
+
   const resetForm = () => {
     setTitle('');
     setDayOfWeek(1);
     setDate('');
     setStartTime('');
     setEndTime('');
-    setLocation('');
+    setLocationId('');
     setDescription('');
     setMinRsvps('');
     setCancelHoursBefore('12');
@@ -73,7 +101,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
     setDate(event.date || '');
     setStartTime(event.startTime);
     setEndTime(event.endTime);
-    setLocation(event.location);
+    setLocationId(event.locationId || '');
     setDescription(event.description || '');
     setMinRsvps(event.minRsvps ? String(event.minRsvps) : '');
     setCancelHoursBefore(event.cancelHoursBefore ? String(event.cancelHoursBefore) : '12');
@@ -81,7 +109,9 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
   };
 
   const handleSave = () => {
-    if (!title || !startTime || !endTime || !location) {
+    const studio = studios.find((item) => item.id === locationId);
+    const location = studio?.name || editingEvent?.location || '';
+    if (!title || !startTime || !endTime || !locationId || !location) {
       alert('Please fill in all required fields');
       return;
     }
@@ -103,6 +133,7 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
       startTime,
       endTime,
       location,
+      locationId,
       description,
       isRecurring: eventType === 'recurring',
     };
@@ -251,16 +282,15 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
-                <Input
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Studio name, room, etc."
-                  className={isMobile ? 'text-base' : ''}
-                />
-              </div>
+              <StudioField
+                id="location"
+                locationId={locationId}
+                fallbackName={editingEvent?.location || ''}
+                studios={studios}
+                ready={studiosReady}
+                error={studioError}
+                onChange={setLocationId}
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
@@ -321,16 +351,15 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="event-location">Location *</Label>
-                <Input
-                  id="event-location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Studio name, address, etc."
-                  className={isMobile ? 'text-base' : ''}
-                />
-              </div>
+              <StudioField
+                id="event-location"
+                locationId={locationId}
+                fallbackName={editingEvent?.location || ''}
+                studios={studios}
+                ready={studiosReady}
+                error={studioError}
+                onChange={setLocationId}
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="event-description">Description</Label>
@@ -495,6 +524,50 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+function StudioField({
+  id,
+  locationId,
+  fallbackName,
+  studios,
+  ready,
+  error,
+  onChange,
+}: {
+  id: string;
+  locationId: string;
+  fallbackName: string;
+  studios: Studio[];
+  ready: boolean;
+  error: string | null;
+  onChange: (locationId: string) => void;
+}) {
+  const known = studios.some((studio) => studio.id === locationId);
+  const selected = studios.find((studio) => studio.id === locationId);
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>Studio *</Label>
+      <select
+        id={id}
+        value={locationId}
+        disabled={!ready || (studios.length === 0 && !locationId)}
+        onChange={(event) => onChange(event.target.value)}
+        className="border-input bg-input-background flex h-9 w-full rounded-md border px-3 text-sm"
+      >
+        <option value="">{ready && studios.length === 0 ? 'No approved studios' : 'Choose a studio'}</option>
+        {!known && locationId && <option value={locationId}>{fallbackName || 'Current studio'}</option>}
+        {studios.map((studio) => (
+          <option key={studio.id} value={studio.id}>{studio.name}</option>
+        ))}
+      </select>
+      {selected?.address && <p className="text-sm text-muted-foreground">{selected.address}</p>}
+      {ready && studios.length === 0 && (
+        <p className="text-sm text-muted-foreground">An admin needs to approve a studio before you can add a class.</p>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

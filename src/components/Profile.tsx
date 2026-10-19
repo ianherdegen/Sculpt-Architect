@@ -28,6 +28,7 @@ export interface ClassEvent {
   startTime: string;
   endTime: string;
   location: string;
+  locationId?: string;
   description?: string;
   isRecurring: boolean;
   minRsvps?: number;
@@ -390,73 +391,28 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
     return null;
   };
 
-  const handleAddEvent = async (event: ClassEvent) => {
-    const updatedEvents = [...editedProfile.events, event];
-    const updatedProfile = {
-      ...editedProfile,
-      events: updatedEvents,
-    };
-    setEditedProfile(updatedProfile);
-    
-    // Auto-save events to Supabase if not in viewer mode and userId exists
+  const saveEvents = async (updatedEvents: ClassEvent[]) => {
     if (!isViewerMode && userId) {
       try {
-        await userProfileService.update(userId, {
-          events: updatedEvents,
-    });
-        // Update the main profile state so changes are reflected immediately
-        setProfile(updatedProfile);
+        await userProfileService.update(userId, { events: updatedEvents });
       } catch (error) {
-        console.error('Error auto-saving event:', error);
-        // Don't show error to user for auto-save, just log it
+        alert(error instanceof Error ? error.message : 'Could not save the class.');
+        return;
       }
     }
+    const updatedProfile = { ...editedProfile, events: updatedEvents };
+    setEditedProfile(updatedProfile);
+    setProfile(updatedProfile);
   };
 
-  const handleUpdateEvent = async (eventId: string, updatedEvent: ClassEvent) => {
-    const updatedEvents = editedProfile.events.map(e => e.id === eventId ? updatedEvent : e);
-    const updatedProfile = {
-      ...editedProfile,
-      events: updatedEvents,
-    };
-    setEditedProfile(updatedProfile);
-    
-    // Auto-save events to Supabase if not in viewer mode and userId exists
-    if (!isViewerMode && userId) {
-      try {
-        await userProfileService.update(userId, {
-          events: updatedEvents,
-        });
-        // Update the main profile state so changes are reflected immediately
-        setProfile(updatedProfile);
-      } catch (error) {
-        console.error('Error auto-saving event update:', error);
-        // Don't show error to user for auto-save, just log it
-      }
-    }
+  const handleAddEvent = (event: ClassEvent) => saveEvents([...editedProfile.events, event]);
+
+  const handleUpdateEvent = (eventId: string, updatedEvent: ClassEvent) => {
+    saveEvents(editedProfile.events.map(e => e.id === eventId ? updatedEvent : e));
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
-    const updatedEvents = editedProfile.events.filter(e => e.id !== eventId);
-    const updatedProfile = {
-      ...editedProfile,
-      events: updatedEvents,
-    };
-    setEditedProfile(updatedProfile);
-    
-    // Auto-save events to Supabase if not in viewer mode and userId exists
-    if (!isViewerMode && userId) {
-      try {
-        await userProfileService.update(userId, {
-          events: updatedEvents,
-        });
-        // Update the main profile state so changes are reflected immediately
-        setProfile(updatedProfile);
-      } catch (error) {
-        console.error('Error auto-saving event deletion:', error);
-        // Don't show error to user for auto-save, just log it
-      }
-    }
+  const handleDeleteEvent = (eventId: string) => {
+    saveEvents(editedProfile.events.filter(e => e.id !== eventId));
   };
 
   const getDayName = (dayOfWeek: number): string => {

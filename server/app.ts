@@ -37,6 +37,16 @@ import {
   mergeClassRequirements,
 } from './booking.js'
 import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders } from './reminders.js'
+import {
+  bindEventLocations,
+  createLocation,
+  ensureLocationSchema,
+  listActiveLocations,
+  listAdminLocations,
+  listClassesAtLocation,
+  listMyLocations,
+  updateLocation,
+} from './locations.js'
 
 type Env = {
   Variables: {
@@ -57,6 +67,7 @@ app.use('*', async (c, next) => {
   await ensureProfileColumns()
   await ensureBookingSchema()
   await ensureReminderSchema()
+  await ensureLocationSchema()
   await next()
 })
 
@@ -640,6 +651,29 @@ app.post('/api/sequences/reorder', requireAuth, async (c) => {
 })
 
 // ============================================================================
+// Studios
+// ============================================================================
+
+app.get('/api/locations', requireAuth, async (c) => {
+  return c.json({ locations: await listActiveLocations() })
+})
+
+app.get('/api/locations/mine', requireAuth, async (c) => {
+  const user = c.get('user')
+  return c.json({ locations: await listMyLocations(user.id) })
+})
+
+app.get('/api/locations/:id/classes', requireAuth, async (c) => {
+  const user = c.get('user')
+  const result = await listClassesAtLocation(c.req.param('id'), {
+    id: user.id,
+    email: user.email.toLowerCase(),
+  })
+  if (result.error) return c.json({ error: result.error }, result.status)
+  return c.json({ classes: result.classes, location: result.location })
+})
+
+// ============================================================================
 // Class booking (logged-in student RSVPs)
 // ============================================================================
 
@@ -787,9 +821,21 @@ app.get('/api/profiles/user/:userId', async (c) => {
   return c.json(formatUserProfile(result.rows[0]))
 })
 
+async function prepareClassEvents(userId: string, events: unknown) {
+  const db = getDb()
+  const previous = parseJson((await db.execute({
+    sql: 'SELECT events FROM user_profiles WHERE user_id = ?',
+    args: [userId],
+  })).rows[0]?.events, [])
+  const merged = mergeClassRequirements(previous, events, await isAdmin(userId))
+  return bindEventLocations(userId, merged)
+}
+
 app.post('/api/profiles/me', requireAuth, async (c) => {
   const user = c.get('user')
   const body = await c.req.json<Record<string, unknown>>()
+  const prepared = await prepareClassEvents(user.id, body.events || [])
+  if (prepared.error) return c.json({ error: prepared.error }, prepared.status)
   const id = generateId()
   const db = getDb()
 
@@ -803,7 +849,7 @@ app.post('/api/profiles/me', requireAuth, async (c) => {
         body.email || user.email,
         body.name || '',
         body.bio || '',
-        JSON.stringify(body.events || []),
+        JSON.stringify(prepared.events),
         body.share_id || user.id,
       ],
     })
@@ -829,20 +875,18 @@ app.patch('/api/profiles/me', requireAuth, async (c) => {
     return c.json({ error: 'Instructor access required.' }, 403)
   }
 
+  let eventsJson: string | undefined
+  if (body.events !== undefined) {
+    const prepared = await prepareClassEvents(user.id, body.events)
+    if (prepared.error) return c.json({ error: prepared.error }, prepared.status)
+    eventsJson = JSON.stringify(prepared.events)
+  }
+
   const fieldMap: Record<string, unknown> = {
     name: body.name,
     bio: body.bio,
     email: body.email,
-    events: body.events !== undefined
-      ? JSON.stringify(mergeClassRequirements(
-          parseJson((await db.execute({
-            sql: 'SELECT events FROM user_profiles WHERE user_id = ?',
-            args: [user.id],
-          })).rows[0]?.events, []),
-          body.events,
-          await isAdmin(user.id),
-        ))
-      : undefined,
+    events: eventsJson,
     share_id: body.share_id,
     venmo_username: body.venmo_username,
     profile_photo_url: body.profile_photo_url,
@@ -943,6 +987,30 @@ app.get('/api/permissions/:userId/check/:key', requireAuth, async (c) => {
 // ============================================================================
 // Admin
 // ============================================================================
+
+app.get('/api/admin/locations', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (!(await isAdmin(user.id))) return c.json({ error: 'Forbidden' }, 403)
+  return c.json(await listAdminLocations())
+})
+
+app.post('/api/admin/locations', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (!(await isAdmin(user.id))) return c.json({ error: 'Forbidden' }, 403)
+  const body = await c.req.json<{ name?: string; address?: string }>()
+  const result = await createLocation(body)
+  if (result.error) return c.json({ error: result.error }, result.status)
+  return c.json({ location: result.location }, 201)
+})
+
+app.patch('/api/admin/locations/:id', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (!(await isAdmin(user.id))) return c.json({ error: 'Forbidden' }, 403)
+  const body = await c.req.json<Record<string, unknown>>()
+  const result = await updateLocation(c.req.param('id'), body)
+  if (result.error) return c.json({ error: result.error }, result.status)
+  return c.json({ location: result.location })
+})
 
 app.get('/api/admin/users', requireAuth, async (c) => {
   const user = c.get('user')

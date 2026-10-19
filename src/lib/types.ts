@@ -42,6 +42,7 @@ export interface ClassEvent {
   startTime: string
   endTime: string
   location: string
+  locationId?: string
   description?: string
   isRecurring: boolean
   minRsvps?: number

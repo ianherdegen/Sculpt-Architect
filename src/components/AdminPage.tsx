@@ -7,9 +7,9 @@ import type { UserProfile } from '../lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
-import { Search, Loader2, Ban, CheckCircle } from 'lucide-react';
+import { Search, Loader2, Ban } from 'lucide-react';
+import { StudioAdmin } from './StudioAdmin';
 import { useIsMobile } from './ui/use-mobile';
 
 interface UserWithPermissions extends UserProfile {
@@ -42,6 +42,7 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [section, setSection] = useState<'studios' | 'permissions'>('studios');
 
   // Fetch all users
   useEffect(() => {
@@ -170,108 +171,119 @@ export function AdminPage() {
   }
 
   return (
-    <div className={`${isMobile ? 'p-4' : 'p-8'} max-w-7xl mx-auto`}>
-      <div className="mb-6">
+    <div className={`admin-panel ${isMobile ? 'p-4' : 'p-8'} max-w-7xl mx-auto`}>
+      <div className="mb-4">
         <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
-        <p className="text-muted-foreground">Manage user permissions</p>
+        <p className="text-muted-foreground">Studios and who can use them.</p>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by email or name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+      <div className="flex gap-2 mb-4" role="tablist" aria-label="Admin sections">
+        <Button
+          type="button"
+          variant={section === 'studios' ? 'default' : 'outline'}
+          aria-pressed={section === 'studios'}
+          onClick={() => setSection('studios')}
+        >
+          Studios
+        </Button>
+        <Button
+          type="button"
+          variant={section === 'permissions' ? 'default' : 'outline'}
+          aria-pressed={section === 'permissions'}
+          onClick={() => setSection('permissions')}
+        >
+          Permissions
+        </Button>
       </div>
 
-      {/* Users Table */}
-      {loading ? (
-        <div className="text-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading users...</p>
-        </div>
-      ) : filteredUsers.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            {searchQuery ? 'No users found matching your search.' : 'No users found.'}
-          </p>
-        </div>
+      {section === 'studios' ? (
+        <StudioAdmin />
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
-            <Table className="w-full table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">User</TableHead>
-                  {PERMISSION_KEYS.map(key => (
-                    <TableHead key={key} className="text-center">
-                      {PERMISSION_LABELS[key]}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map(user => (
-                  <TableRow key={user.user_id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{user.email}</div>
-                        {user.name && (
-                          <div className="text-sm text-muted-foreground">{user.name}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    {PERMISSION_KEYS.map(permissionKey => (
-                      <TableCell key={permissionKey} className="text-center">
-                        <Checkbox
-                          checked={user.permissions[permissionKey] === true || (permissionKey === 'instructor' && user.instructor_locked)}
-                          disabled={saving === user.user_id || (permissionKey === 'instructor' && user.instructor_locked)}
-                          onCheckedChange={(checked) => 
-                            handlePermissionToggle(user.user_id, permissionKey, checked === true)
-                          }
-                        />
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-center">
-                      <Button
-                        variant={user.is_banned ? "destructive" : "outline"}
-                        size="sm"
-                        disabled={saving === user.user_id}
-                        onClick={() => handleBanToggle(user.user_id, !user.is_banned)}
-                        className="gap-2"
-                      >
-                        {user.is_banned ? (
-                          <>
-                            <Ban className="h-4 w-4" />
-                            {isMobile ? 'Unban' : 'Unban User'}
-                          </>
-                        ) : (
-                          <>
-                            <Ban className="h-4 w-4" />
-                            {isMobile ? 'Ban' : 'Ban User'}
-                          </>
-                        )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        <section>
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by email or name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Summary */}
-      {!loading && (
-        <div className="mt-6 text-sm text-muted-foreground">
-          Showing {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''}
-        </div>
+          {loading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">Loading users...</p>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                {searchQuery ? 'No users found matching your search.' : 'No users found.'}
+              </p>
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
+                <Table className="w-full table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">User</TableHead>
+                      {PERMISSION_KEYS.map(key => (
+                        <TableHead key={key} className="text-center">
+                          {PERMISSION_LABELS[key]}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map(person => (
+                      <TableRow key={person.user_id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{person.email}</div>
+                            {person.name && (
+                              <div className="text-sm text-muted-foreground">{person.name}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        {PERMISSION_KEYS.map(permissionKey => (
+                          <TableCell key={permissionKey} className="text-center">
+                            <Checkbox
+                              checked={person.permissions[permissionKey] === true || (permissionKey === 'instructor' && person.instructor_locked)}
+                              disabled={saving === person.user_id || (permissionKey === 'instructor' && person.instructor_locked)}
+                              onCheckedChange={(checked) =>
+                                handlePermissionToggle(person.user_id, permissionKey, checked === true)
+                              }
+                            />
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-center">
+                          <Button
+                            variant={person.is_banned ? 'destructive' : 'outline'}
+                            size="sm"
+                            disabled={saving === person.user_id}
+                            onClick={() => handleBanToggle(person.user_id, !person.is_banned)}
+                            className="gap-2"
+                          >
+                            <Ban className="h-4 w-4" />
+                            {person.is_banned ? (isMobile ? 'Unban' : 'Unban User') : (isMobile ? 'Ban' : 'Ban User')}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+          {!loading && (
+            <div className="mt-6 text-sm text-muted-foreground">
+              Showing {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''}
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

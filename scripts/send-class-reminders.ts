@@ -8,7 +8,7 @@
  *
  * --now pretends the current time is that UTC instant, so you can trigger
  * the 1-day window (22–26 hours before start) or the 2-hour window
- * (45 minutes–2.5 hours before start) without waiting.
+ * (30 minutes–2.75 hours before start) without waiting.
  * --reset clears the "already sent" mark for reminders due at that time.
  *
  * Requires TURSO_DATABASE_URL. Real email also needs RESEND_API_KEY and EMAIL_FROM.

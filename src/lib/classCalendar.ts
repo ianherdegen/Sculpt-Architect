@@ -5,7 +5,7 @@ export type ReminderKind = 'day' | 'two_hours'
 /** Hours-until-start window in which that reminder is due. Wider than one hour so an hourly job still hits it. */
 export const REMINDER_WINDOWS: Record<ReminderKind, { minHours: number; maxHours: number }> = {
   day: { minHours: 22, maxHours: 26 },
-  two_hours: { minHours: 0.75, maxHours: 2.5 },
+  two_hours: { minHours: 0.5, maxHours: 2.75 },
 }
 
 export interface CalendarClass {

@@ -1,0 +1,31 @@
+name: Class reminders
+
+on:
+  schedule:
+    # Hourly, offset from the top of the hour. GitHub may start a few minutes late.
+    - cron: '15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send due class reminders
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          response=$(mktemp)
+          code=$(curl --silent --show-error --max-time 60 \
+            --output "$response" \
+            --write-out '%{http_code}' \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/class-reminders")
+          if [ "$code" != "200" ]; then
+            echo "Reminder job failed with HTTP ${code}"
+            rm -f "$response"
+            exit 1
+          fi
+          python3 -c 'import json,sys; data=json.load(open(sys.argv[1])); print(json.dumps({"checked":data.get("checked",0),"sent":len(data.get("sent") or []),"skipped":len(data.get("skipped") or []),"errors":len(data.get("errors") or [])})); sys.exit(1 if data.get("errors") else 0)' "$response"
+          rm -f "$response"

@@ -485,7 +485,6 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
         const end = zonedWallTimeToUtc(classDate, event.endTime)
         if (end && end.getTime() <= now.getTime()) continue
         const key = `${profile.user_id}:${event.id}:${classDate}`
-        if (cancelled.has(key)) continue
         classes.push({
           event_id: String(event.id),
           class_date: classDate,
@@ -496,6 +495,7 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
           instructor_share_id: profile.share_id,
           own_class: profile.user_id === account.id,
           going: going.has(key),
+          cancelled: cancelled.has(key),
         })
       }
     }

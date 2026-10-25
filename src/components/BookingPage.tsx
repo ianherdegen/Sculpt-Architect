@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Calendar, Check, Home } from 'lucide-react';
 import { AddToCalendar } from './AddToCalendar';
-import { calendarDescription } from '../lib/classCalendar';
+import { calendarDescription, newRsvpsClosed } from '../lib/classCalendar';
 import { userProfileService } from '../lib/userProfileService';
 import {
   bookingService,
@@ -153,12 +153,18 @@ export function BookingPage() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modeSwitchFailed, setModeSwitchFailed] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const listGeneration = useRef(0);
   const isOwner = !!user && profileUserId === user.id;
   const showReceived = isOwner && canInstruct;
   const expectedMode = user && profileUserId ? (showReceived ? 'instructor' : 'student') : null;
   const modeReady = !expectedMode || mode === expectedMode || modeSwitchFailed;
   const canBook = !!user && mode === 'student' && !isOwner;
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -337,8 +343,8 @@ export function BookingPage() {
               {!isOwner && (
                 <p className="text-sm text-muted-foreground">
                   {user
-                    ? 'RSVP with your student account, or cancel if you can’t make it.'
-                    : 'Log in as a student to book a class.'}
+                    ? 'RSVP with your student account, or cancel if you can’t make it. New RSVPs close 1 hour before class.'
+                    : 'Log in as a student to book a class. New RSVPs close 1 hour before class.'}
                 </p>
               )}
               {classesByDate.length === 0 ? (
@@ -350,6 +356,7 @@ export function BookingPage() {
                     {group.items.map((item) => {
                       const key = occurrenceKey(item.eventId, item.date);
                       const going = rsvpKeys.has(key);
+                      const rsvpsClosed = newRsvpsClosed(item.date, item.startTime, now);
                       const status = statuses.find((itemStatus) => itemStatus.eventId === item.eventId && itemStatus.classDate === item.date);
                       const cancelledClass = status?.status === 'cancelled';
                       const loginHref = `/?return=${encodeURIComponent(`/book/${shareId}`)}`;
@@ -394,6 +401,8 @@ export function BookingPage() {
                                 })}
                               />
                             </div>
+                          ) : rsvpsClosed && (canBook || !user) ? (
+                            <p className="text-sm text-muted-foreground">RSVPs closed</p>
                           ) : canBook ? (
                             <Button
                               type="button"

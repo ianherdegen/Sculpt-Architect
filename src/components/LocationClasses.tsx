@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { bookingService, formatClassDate, formatClassTime, occurrenceKey } from '../lib/booking'
+import { newRsvpsClosed } from '../lib/classCalendar'
 import { locationService, type BookableClass, type Studio } from '../lib/locations'
 import { Button } from './ui/button'
 import { ApiError } from '../lib/apiClient'
@@ -21,6 +22,12 @@ export function LocationClasses({
   const [loadingClasses, setLoadingClasses] = useState(false)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -98,7 +105,7 @@ export function LocationClasses({
     <section className="space-y-3">
       <div>
         <h3 className="font-medium">Book a class</h3>
-        <p className="text-sm text-muted-foreground">Choose a studio to see its upcoming classes.</p>
+        <p className="text-sm text-muted-foreground">Choose a studio to see its upcoming classes. New RSVPs close 1 hour before class.</p>
       </div>
       {loadingStudios ? (
         <p className="text-sm text-muted-foreground">Loading studios...</p>
@@ -141,8 +148,26 @@ export function LocationClasses({
                   <p className="text-sm text-muted-foreground">
                     {formatClassDate(item.classDate)} · {formatClassTime(item.startTime)} – {formatClassTime(item.endTime)}
                   </p>
+                  {item.cancelled && (
+                    <p className="text-sm text-destructive">Cancelled — not enough RSVPs</p>
+                  )}
                 </div>
-                {item.ownClass ? (
+                {item.cancelled ? (
+                  item.going ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      disabled={busyKey === key}
+                      onClick={() => cancel(item)}
+                    >
+                      Cancel RSVP
+                    </Button>
+                  ) : item.ownClass ? (
+                    <p className="text-sm text-muted-foreground">Your class</p>
+                  ) : null
+                ) : item.ownClass ? (
                   <p className="text-sm text-muted-foreground">Your class</p>
                 ) : item.going ? (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -158,6 +183,8 @@ export function LocationClasses({
                       Cancel RSVP
                     </Button>
                   </div>
+                ) : newRsvpsClosed(item.classDate, item.startTime, now) ? (
+                  <p className="text-sm text-muted-foreground">RSVPs closed</p>
                 ) : (
                   <Button
                     type="button"

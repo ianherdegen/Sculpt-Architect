@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { getDb, parseJson, resolveViewMode, rowToBool } from './db.js'
 import { generateId } from './auth.js'
-import { zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
+import { newRsvpsClosed, RSVP_CLOSED_MESSAGE, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
 
 let schemaReady = false
 
@@ -416,6 +416,17 @@ export async function createRsvp(profile: { userId: string; events: any[] }, acc
   await syncClassDecisions(profile.userId, profile.events)
   if (classRequirement(event) && await occurrenceDecision(profile.userId, eventId, classDate) === 'cancelled') {
     return { error: 'This class was cancelled because it did not get enough RSVPs.', status: 409 as const }
+  }
+  if (newRsvpsClosed(classDate, event.startTime)) {
+    const db = getDb()
+    const existing = await db.execute({
+      sql: `SELECT id FROM class_rsvps
+            WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND email = ?`,
+      args: [profile.userId, eventId, classDate, account.email],
+    })
+    if (existing.rows.length === 0) {
+      return { error: RSVP_CLOSED_MESSAGE, status: 400 as const }
+    }
   }
 
   const db = getDb()

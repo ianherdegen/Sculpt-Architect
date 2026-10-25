@@ -25,6 +25,7 @@ export interface BookableClass {
   instructorShareId: string
   ownClass: boolean
   going: boolean
+  cancelled: boolean
 }
 
 interface ApiBookableClass {
@@ -37,6 +38,7 @@ interface ApiBookableClass {
   instructor_share_id?: string
   own_class?: boolean
   going?: boolean
+  cancelled?: boolean
 }
 
 function toClass(row: ApiBookableClass): BookableClass {
@@ -50,6 +52,7 @@ function toClass(row: ApiBookableClass): BookableClass {
     instructorShareId: row.instructor_share_id || '',
     ownClass: row.own_class === true,
     going: row.going === true,
+    cancelled: row.cancelled === true,
   }
 }
 

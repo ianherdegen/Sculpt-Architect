@@ -91,6 +91,17 @@ export function hoursUntilStart(start: Date, now: Date): number {
   return (start.getTime() - now.getTime()) / (60 * 60 * 1000)
 }
 
+/** New RSVPs stop this long before the Detroit start time. Cancels stay open. */
+export const RSVP_CLOSE_BEFORE_MS = 60 * 60 * 1000
+
+export const RSVP_CLOSED_MESSAGE = 'RSVPs close 1 hour before class.'
+
+export function newRsvpsClosed(classDate: string, startTime: string, now = new Date()): boolean {
+  const start = zonedWallTimeToUtc(classDate, startTime)
+  if (!start) return true
+  return now.getTime() >= start.getTime() - RSVP_CLOSE_BEFORE_MS
+}
+
 export function dueReminderKinds(hoursUntil: number): ReminderKind[] {
   const kinds: ReminderKind[] = []
   for (const kind of ['day', 'two_hours'] as ReminderKind[]) {

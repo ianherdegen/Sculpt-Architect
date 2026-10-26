@@ -12,6 +12,7 @@ import {
   formatWallTime,
   googleCalendarUrl,
   hoursUntilStart,
+  thanksIsDue,
   zonedToday,
 } from '../src/lib/classCalendar.js'
 
@@ -91,6 +92,31 @@ function reminderCopy(classDate, startTime, title) {
     subject: `${starts}: ${title}`,
     lead: `Your class is coming up at ${formatWallTime(startTime)} Eastern Time.`,
   }
+}
+
+function thanksCopy(title) {
+  return {
+    subject: `Thanks for attending ${title}`,
+    lead: 'Thanks for attending.',
+  }
+}
+
+function thanksHtml({ title, when, location, instructorName, bookUrl }) {
+  const withLine = instructorName
+    ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
+    : ''
+  const button = bookUrl
+    ? `<p style="margin:24px 0 8px;"><a href="${escapeHtml(bookUrl)}" style="display:inline-block;padding:12px 18px;background:#030213;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">Book again</a></p>`
+    : ''
+  return `
+    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">Thanks for attending</h2>
+    <p style="color:#030213;font-size:18px;font-weight:600;margin:0 0 8px;">${escapeHtml(title)}</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
+    ${withLine}
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">You can book again for next week.</p>
+    ${button}
+  `
 }
 
 function reminderHtml({ lead, title, when, location, instructorName, googleUrl, icsUrl }) {
@@ -234,7 +260,7 @@ export async function sendDueClassReminders(options = {}) {
     args: [fromYmd, toYmd],
   })
   const profiles = await db.execute(
-    'SELECT user_id, email, name, notify_day_before, notify_two_hours FROM user_profiles'
+    'SELECT user_id, email, name, share_id, notify_day_before, notify_two_hours FROM user_profiles'
   )
   const byUserId = new Map()
   const byEmail = new Map()
@@ -263,6 +289,7 @@ export async function sendDueClassReminders(options = {}) {
       continue
     }
     const kinds = dueReminderKinds(hoursUntilStart(instants.start, now))
+    if (thanksIsDue(instants.end, now)) kinds.push('thanks')
     if (kinds.length === 0) continue
 
     const profile = (rsvp.user_id && byUserId.get(rsvp.user_id))
@@ -282,12 +309,15 @@ export async function sendDueClassReminders(options = {}) {
     }
 
     for (const kind of kinds) {
-      if (!wantsReminder(profile, kind)) {
+      if (kind !== 'thanks' && !wantsReminder(profile, kind)) {
         skipped.push({ id: rsvp.id, kind, reason: 'preference off' })
         continue
       }
-      const copy = reminderCopy(rsvp.class_date, rsvp.start_time, rsvp.title)
       const when = `${formatWallDate(rsvp.class_date)} · ${formatWallTime(rsvp.start_time)} – ${formatWallTime(rsvp.end_time)}`
+      const copy = kind === 'thanks'
+        ? thanksCopy(rsvp.title)
+        : reminderCopy(rsvp.class_date, rsvp.start_time, rsvp.title)
+      const bookUrl = instructor?.share_id ? `${appOrigin()}/book/${encodeURIComponent(instructor.share_id)}` : ''
       const entry = {
         email: rsvp.email,
         kind,
@@ -299,11 +329,15 @@ export async function sendDueClassReminders(options = {}) {
       }
 
       if (dryRun) {
-        const googleUrl = googleCalendarUrl(calendarItem)
+        const googleUrl = kind === 'thanks' ? null : googleCalendarUrl(calendarItem)
         sent.push({
           ...entry,
           dryRun: true,
-          ...(includeLinks ? { googleUrl, icsUrl: rsvp.calendar_token ? `${appOrigin()}/api/calendar/${rsvp.calendar_token}` : null } : {}),
+          ...(includeLinks ? {
+            ...(kind === 'thanks' ? { bookUrl: bookUrl || null } : {}),
+            googleUrl,
+            icsUrl: kind === 'thanks' || !rsvp.calendar_token ? null : `${appOrigin()}/api/calendar/${rsvp.calendar_token}`,
+          } : {}),
         })
         continue
       }
@@ -321,18 +355,26 @@ export async function sendDueClassReminders(options = {}) {
           ...calendarItem,
           uid: `class-${token}@sculpt-sequences`,
         }
-        const googleUrl = googleCalendarUrl(item)
-        const icsUrl = `${appOrigin()}/api/calendar/${token}`
-        const ics = buildIcs(item)
-        const html = reminderHtml({
-          lead: copy.lead,
-          title: rsvp.title,
-          when,
-          location: rsvp.location,
-          instructorName,
-          googleUrl,
-          icsUrl,
-        })
+        const googleUrl = kind === 'thanks' ? null : googleCalendarUrl(item)
+        const icsUrl = kind === 'thanks' ? null : `${appOrigin()}/api/calendar/${token}`
+        const ics = kind === 'thanks' ? null : buildIcs(item)
+        const html = kind === 'thanks'
+          ? thanksHtml({
+            title: rsvp.title,
+            when,
+            location: rsvp.location,
+            instructorName,
+            bookUrl,
+          })
+          : reminderHtml({
+            lead: copy.lead,
+            title: rsvp.title,
+            when,
+            location: rsvp.location,
+            instructorName,
+            googleUrl,
+            icsUrl,
+          })
         const delivery = await deliverEmail({
           to: rsvp.email,
           subject: entry.subject,
@@ -350,8 +392,12 @@ export async function sendDueClassReminders(options = {}) {
           await releaseSend(rsvp.id, kind)
           console.log(`[class-reminders] not emailed (set RESEND_API_KEY and EMAIL_FROM): ${entry.subject}`)
           console.log(`  to: ${rsvp.email}`)
-          console.log(`  Google: ${googleUrl}`)
-          console.log(`  iCal: ${icsUrl}`)
+          if (kind === 'thanks') {
+            if (bookUrl) console.log(`  Book again: ${bookUrl}`)
+          } else {
+            console.log(`  Google: ${googleUrl}`)
+            console.log(`  iCal: ${icsUrl}`)
+          }
         } else {
           console.log(`[class-reminders] sent ${kind} to ${rsvp.email} for ${rsvp.title}`)
         }
@@ -359,7 +405,9 @@ export async function sendDueClassReminders(options = {}) {
           ...entry,
           logged: delivery.logged === true,
           emailed: delivery.logged !== true,
-          ...(includeLinks ? { googleUrl, icsUrl } : {}),
+          ...(includeLinks ? {
+            ...(kind === 'thanks' ? { bookUrl: bookUrl || null } : { googleUrl, icsUrl }),
+          } : {}),
         })
       } catch (err) {
         await releaseSend(rsvp.id, kind)

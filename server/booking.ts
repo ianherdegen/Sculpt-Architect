@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { getDb, parseJson, resolveViewMode, rowToBool } from './db.js'
 import { generateId } from './auth.js'
-import { newRsvpsClosed, RSVP_CLOSED_MESSAGE, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
+import { newRsvpsClosed, RSVP_CLOSED_MESSAGE, showsInUpcomingWeek, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
 
 let schemaReady = false
 
@@ -90,15 +90,6 @@ function addDays(ymd: string, days: number): string {
 function weekday(ymd: string): number {
   const [year, month, day] = ymd.split('-').map(Number)
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
-}
-
-function utcToday(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function isInBookingWindow(classDate: string): boolean {
-  const today = utcToday()
-  return classDate >= addDays(today, -1) && classDate <= addDays(today, 7)
 }
 
 export async function getBookableProfile(shareId: string) {
@@ -406,12 +397,12 @@ async function occurrenceDecision(profileUserId: string, eventId: string, classD
 }
 
 export async function createRsvp(profile: { userId: string; events: any[] }, account: { id: string; email: string }, eventId: string, classDate: string) {
-  if (!isInBookingWindow(classDate)) {
-    return { error: 'That class is outside the upcoming week.', status: 400 as const }
-  }
   const event = findClass(profile.events, eventId, classDate)
   if (!event) {
     return { error: 'That class is not on this schedule.', status: 400 as const }
+  }
+  if (!showsInUpcomingWeek(event, classDate)) {
+    return { error: 'That class is outside the upcoming week.', status: 400 as const }
   }
   await syncClassDecisions(profile.userId, profile.events)
   if (classRequirement(event) && await occurrenceDecision(profile.userId, eventId, classDate) === 'cancelled') {

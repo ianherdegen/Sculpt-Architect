@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { bookingService, formatClassDate, formatClassTime, occurrenceKey } from '../lib/booking'
 import { newRsvpsClosed } from '../lib/classCalendar'
@@ -23,6 +23,8 @@ export function LocationClasses({
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
+  const loadedStudio = useRef('')
+  const minute = Math.floor(now.getTime() / 60_000)
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30_000)
@@ -51,14 +53,18 @@ export function LocationClasses({
   useEffect(() => {
     if (!studioId) {
       setClasses([])
+      loadedStudio.current = ''
       return
     }
     let cancelled = false
-    setLoadingClasses(true)
+    const switchingStudio = loadedStudio.current !== studioId
+    if (switchingStudio) setLoadingClasses(true)
     setError(null)
     locationService.classes(studioId)
       .then((list) => {
-        if (!cancelled) setClasses(list)
+        if (cancelled) return
+        loadedStudio.current = studioId
+        setClasses(list)
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load classes.')
@@ -69,7 +75,7 @@ export function LocationClasses({
     return () => {
       cancelled = true
     }
-  }, [studioId, revision])
+  }, [studioId, revision, minute])
 
   const selected = studios.find((studio) => studio.id === studioId)
 

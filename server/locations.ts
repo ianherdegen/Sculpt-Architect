@@ -2,7 +2,7 @@
 import { getDb, isProtectedInstructor, parseJson } from './db.js'
 import { generateId } from './auth.js'
 import { syncClassDecisions } from './booking.js'
-import { addDays, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
+import { addDays, showsInUpcomingWeek, zonedToday } from '../src/lib/classCalendar.js'
 
 let ready: Promise<void> | null = null
 
@@ -434,8 +434,9 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
   const location = locationRow.rows[0]
   if (!location) return { error: 'Studio not found.', status: 404 as const }
 
-  const today = zonedToday()
-  const endDate = addDays(today, 6)
+  const now = new Date()
+  const today = zonedToday(now)
+  const endDate = addDays(today, 7)
   const profiles = await db.execute(`
     SELECT user_id, name, share_id, events, is_banned
     FROM user_profiles
@@ -471,19 +472,16 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
   })
   const going = new Set(rsvps.rows.map((row) => `${row.profile_user_id}:${row.event_id}:${row.class_date}`))
 
-  const now = new Date()
   const classes = []
   for (const { profile, events } of hosts) {
     for (const event of events) {
       if (!event.id || !event.title || !event.startTime || !event.endTime) continue
-      for (let offset = 0; offset < 7; offset++) {
+      for (let offset = 0; offset <= 7; offset++) {
         const classDate = addDays(today, offset)
         const matches = event.isRecurring
           ? Number(event.dayOfWeek) === weekday(classDate)
           : event.date === classDate
-        if (!matches) continue
-        const end = zonedWallTimeToUtc(classDate, event.endTime)
-        if (end && end.getTime() <= now.getTime()) continue
+        if (!matches || !showsInUpcomingWeek(event, classDate, now)) continue
         const key = `${profile.user_id}:${event.id}:${classDate}`
         classes.push({
           event_id: String(event.id),

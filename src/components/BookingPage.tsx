@@ -20,6 +20,7 @@ import {
 import { ApiError } from '../lib/apiClient';
 import { useAuth } from '../lib/auth';
 import { useViewMode } from '../lib/viewMode';
+import type { ClassEvent } from '../lib/types';
 import '../styles/booking-form.css';
 
 function emailsForClass(rsvps: ClassRsvp[], eventId: string, date: string) {
@@ -145,7 +146,7 @@ export function BookingPage() {
   const { mode, canInstruct, loading: modeLoading, setMode } = useViewMode();
   const [instructorName, setInstructorName] = useState('');
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
-  const [classes, setClasses] = useState<ClassOccurrence[]>([]);
+  const [events, setEvents] = useState<ClassEvent[]>([]);
   const [statuses, setStatuses] = useState<ClassRunStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -160,6 +161,7 @@ export function BookingPage() {
   const expectedMode = user && profileUserId ? (showReceived ? 'instructor' : 'student') : null;
   const modeReady = !expectedMode || mode === expectedMode || modeSwitchFailed;
   const canBook = !!user && mode === 'student' && !isOwner;
+  const classes = useMemo(() => upcomingWeek(events, now), [events, now]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30_000);
@@ -173,6 +175,7 @@ export function BookingPage() {
         setLoading(true);
         setNotFound(false);
         setProfileUserId(null);
+        setEvents([]);
         setModeSwitchFailed(false);
         const profile = await userProfileService.getByShareId(shareId);
         if (cancelled) return;
@@ -182,7 +185,7 @@ export function BookingPage() {
         }
         setInstructorName(profile.name || '');
         setProfileUserId(profile.user_id);
-        setClasses(upcomingWeek(profile.events || []));
+        setEvents(profile.events || []);
         try {
           const occurrenceStatuses = await bookingService.listOccurrences(shareId);
           if (!cancelled) setStatuses(occurrenceStatuses);

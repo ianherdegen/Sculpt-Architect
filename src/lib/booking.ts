@@ -1,4 +1,5 @@
 import { api } from './apiClient'
+import { addDays, showsInUpcomingWeek, ymdWeekday, zonedToday } from './classCalendar'
 import type { ClassEvent } from './types'
 
 export interface ClassOccurrence {
@@ -72,12 +73,6 @@ export function localToday(now = new Date()): string {
   return `${year}-${month}-${day}`
 }
 
-function minutesOf(time: string): number | null {
-  const match = /^(\d{1,2}):(\d{2})/.exec(time)
-  if (!match) return null
-  return Number(match[1]) * 60 + Number(match[2])
-}
-
 export function formatClassTime(time: string): string {
   const [hours, minutes] = time.split(':')
   const hour = parseInt(hours, 10)
@@ -98,24 +93,17 @@ export function formatClassDate(ymd: string): string {
 
 export function upcomingWeek(events: ClassEvent[], now = new Date()): ClassOccurrence[] {
   const occurrences: ClassOccurrence[] = []
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const today = zonedToday(now)
 
-  for (let offset = 0; offset < 7; offset++) {
-    const day = new Date(start)
-    day.setDate(start.getDate() + offset)
-    const date = localToday(day)
-    const dayOfWeek = day.getDay()
+  for (let offset = 0; offset <= 7; offset++) {
+    const date = addDays(today, offset)
+    const dayOfWeek = ymdWeekday(date)
 
     for (const event of events) {
       const matches = event.isRecurring
         ? event.dayOfWeek === dayOfWeek
         : event.date === date
-      if (!matches) continue
-      if (offset === 0) {
-        const end = minutesOf(event.endTime)
-        const nowMinutes = now.getHours() * 60 + now.getMinutes()
-        if (end != null && end <= nowMinutes) continue
-      }
+      if (!matches || !showsInUpcomingWeek(event, date, now)) continue
       occurrences.push({
         eventId: event.id,
         date,

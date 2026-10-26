@@ -91,6 +91,42 @@ export function hoursUntilStart(start: Date, now: Date): number {
   return (start.getTime() - now.getTime()) / (60 * 60 * 1000)
 }
 
+export function ymdWeekday(ymd: string): number {
+  const [year, month, day] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+}
+
+/**
+ * Upcoming classes are the next 7 Detroit calendar days.
+ * The same class a week later is included only after today's occurrence has ended,
+ * on whatever day it falls, so the next one shows up the moment this one finishes.
+ */
+export function showsInUpcomingWeek(
+  event: { isRecurring?: boolean; dayOfWeek?: number; date?: string; startTime: string; endTime: string },
+  classDate: string,
+  now = new Date(),
+): boolean {
+  const instants = classInstants({ classDate, startTime: event.startTime, endTime: event.endTime })
+  if (!instants || instants.end.getTime() <= now.getTime()) return false
+  const today = zonedToday(now)
+  if (classDate < today || classDate > addDays(today, 7)) return false
+  if (classDate < addDays(today, 7)) return true
+  const occursToday = event.isRecurring
+    ? Number(event.dayOfWeek) === ymdWeekday(today)
+    : event.date === today
+  if (!occursToday) return false
+  const todayInstants = classInstants({ classDate: today, startTime: event.startTime, endTime: event.endTime })
+  return !!todayInstants && todayInstants.end.getTime() <= now.getTime()
+}
+
+/** Hourly job can still send the thank-you if it runs a couple of hours late. */
+export const THANKS_WINDOW_MS = 3 * 60 * 60 * 1000
+
+export function thanksIsDue(end: Date, now: Date): boolean {
+  const since = now.getTime() - end.getTime()
+  return since >= 0 && since <= THANKS_WINDOW_MS
+}
+
 /** New RSVPs stop this long before the Detroit start time. Cancels stay open. */
 export const RSVP_CLOSE_BEFORE_MS = 60 * 60 * 1000
 

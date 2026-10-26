@@ -8,8 +8,9 @@
  *   yarn reminders --now=... --reset --to=person@example.com
  *
  * --now pretends the current time is that UTC instant, so you can trigger
- * the 1-day window (22–26 hours before start) or the 2-hour window
- * (30 minutes–2.75 hours before start) without waiting.
+ * the 1-day window (22–26 hours before start), the 2-hour window
+ * (30 minutes–2.75 hours before start), or the thank-you
+ * (within 3 hours after class ends) without waiting.
  * --reset clears the "already sent" mark for reminders due at that time.
  * --to limits the run to one RSVP email.
  *

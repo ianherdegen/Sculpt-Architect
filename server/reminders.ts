@@ -1,11 +1,12 @@
 // @ts-nocheck
 import { getDb, rowToBool } from './db.js'
 import { generateId } from './auth.js'
-import { ensureBookingSchema } from './booking.js'
+import { DECISION_LOOKAHEAD_DAYS, ensureBookingSchema, syncAllClassDecisions } from './booking.js'
 import {
   addDays,
   buildIcs,
   calendarDescription,
+  cancellationIsDue,
   classInstants,
   dueReminderKinds,
   formatWallDate,
@@ -99,6 +100,28 @@ function thanksCopy(title) {
     subject: `Thanks for attending ${title}`,
     lead: 'Thanks for attending.',
   }
+}
+
+function cancellationCopy(classDate, startTime, title) {
+  const starts = `${formatWallDate(classDate)} at ${formatWallTime(startTime)}`
+  return {
+    subject: `Cancelled: ${title}`,
+    lead: `${title} on ${starts} was cancelled.`,
+  }
+}
+
+function cancellationHtml({ title, when, location, instructorName }) {
+  const withLine = instructorName
+    ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
+    : ''
+  return `
+    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">This class was cancelled</h2>
+    <p style="color:#030213;font-size:18px;font-weight:600;margin:0 0 8px;">${escapeHtml(title)}</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
+    ${withLine}
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">It did not get enough RSVPs, so it will not run. You will not get any more reminders for it.</p>
+  `
 }
 
 function thanksHtml({ title, when, location, instructorName, bookUrl }) {
@@ -245,8 +268,9 @@ export async function sendDueClassReminders(options = {}) {
   const reset = options.reset === true
   const includeLinks = options.includeLinks === true
   const onlyEmail = options.onlyEmail ? String(options.onlyEmail).trim().toLowerCase() : ''
+  if (!dryRun) await syncAllClassDecisions(now)
   const fromYmd = addDays(zonedToday(now), -1)
-  const toYmd = addDays(zonedToday(now), 2)
+  const toYmd = addDays(zonedToday(now), DECISION_LOOKAHEAD_DAYS)
   const db = getDb()
 
   const rsvpResult = await db.execute({
@@ -275,10 +299,6 @@ export async function sendDueClassReminders(options = {}) {
 
   for (const rsvp of rsvpResult.rows) {
     if (onlyEmail && String(rsvp.email).toLowerCase() !== onlyEmail) continue
-    if (rsvp.decision_status === 'cancelled') {
-      skipped.push({ id: rsvp.id, reason: 'cancelled' })
-      continue
-    }
     const instants = classInstants({
       classDate: rsvp.class_date,
       startTime: rsvp.start_time,
@@ -288,9 +308,18 @@ export async function sendDueClassReminders(options = {}) {
       skipped.push({ id: rsvp.id, reason: 'invalid time' })
       continue
     }
-    const kinds = dueReminderKinds(hoursUntilStart(instants.start, now))
-    if (thanksIsDue(instants.end, now)) kinds.push('thanks')
-    if (kinds.length === 0) continue
+    let kinds
+    if (rsvp.decision_status === 'cancelled') {
+      if (!cancellationIsDue(instants.end, now)) {
+        skipped.push({ id: rsvp.id, reason: 'cancelled' })
+        continue
+      }
+      kinds = ['cancelled']
+    } else {
+      kinds = dueReminderKinds(hoursUntilStart(instants.start, now))
+      if (thanksIsDue(instants.end, now)) kinds.push('thanks')
+      if (kinds.length === 0) continue
+    }
 
     const profile = (rsvp.user_id && byUserId.get(rsvp.user_id))
       || byEmail.get(String(rsvp.email).toLowerCase())
@@ -309,14 +338,17 @@ export async function sendDueClassReminders(options = {}) {
     }
 
     for (const kind of kinds) {
-      if (kind !== 'thanks' && !wantsReminder(profile, kind)) {
+      if (kind !== 'thanks' && kind !== 'cancelled' && !wantsReminder(profile, kind)) {
         skipped.push({ id: rsvp.id, kind, reason: 'preference off' })
         continue
       }
       const when = `${formatWallDate(rsvp.class_date)} · ${formatWallTime(rsvp.start_time)} – ${formatWallTime(rsvp.end_time)}`
       const copy = kind === 'thanks'
         ? thanksCopy(rsvp.title)
-        : reminderCopy(rsvp.class_date, rsvp.start_time, rsvp.title)
+        : kind === 'cancelled'
+          ? cancellationCopy(rsvp.class_date, rsvp.start_time, rsvp.title)
+          : reminderCopy(rsvp.class_date, rsvp.start_time, rsvp.title)
+      const isNotice = kind === 'thanks' || kind === 'cancelled'
       const bookUrl = instructor?.share_id ? `${appOrigin()}/book/${encodeURIComponent(instructor.share_id)}` : ''
       const entry = {
         email: rsvp.email,
@@ -329,14 +361,14 @@ export async function sendDueClassReminders(options = {}) {
       }
 
       if (dryRun) {
-        const googleUrl = kind === 'thanks' ? null : googleCalendarUrl(calendarItem)
+        const googleUrl = isNotice ? null : googleCalendarUrl(calendarItem)
         sent.push({
           ...entry,
           dryRun: true,
           ...(includeLinks ? {
             ...(kind === 'thanks' ? { bookUrl: bookUrl || null } : {}),
             googleUrl,
-            icsUrl: kind === 'thanks' || !rsvp.calendar_token ? null : `${appOrigin()}/api/calendar/${rsvp.calendar_token}`,
+            icsUrl: isNotice || !rsvp.calendar_token ? null : `${appOrigin()}/api/calendar/${rsvp.calendar_token}`,
           } : {}),
         })
         continue
@@ -355,9 +387,9 @@ export async function sendDueClassReminders(options = {}) {
           ...calendarItem,
           uid: `class-${token}@sculpt-sequences`,
         }
-        const googleUrl = kind === 'thanks' ? null : googleCalendarUrl(item)
-        const icsUrl = kind === 'thanks' ? null : `${appOrigin()}/api/calendar/${token}`
-        const ics = kind === 'thanks' ? null : buildIcs(item)
+        const googleUrl = isNotice ? null : googleCalendarUrl(item)
+        const icsUrl = isNotice ? null : `${appOrigin()}/api/calendar/${token}`
+        const ics = isNotice ? null : buildIcs(item)
         const html = kind === 'thanks'
           ? thanksHtml({
             title: rsvp.title,
@@ -366,15 +398,22 @@ export async function sendDueClassReminders(options = {}) {
             instructorName,
             bookUrl,
           })
-          : reminderHtml({
-            lead: copy.lead,
-            title: rsvp.title,
-            when,
-            location: rsvp.location,
-            instructorName,
-            googleUrl,
-            icsUrl,
-          })
+          : kind === 'cancelled'
+            ? cancellationHtml({
+              title: rsvp.title,
+              when,
+              location: rsvp.location,
+              instructorName,
+            })
+            : reminderHtml({
+              lead: copy.lead,
+              title: rsvp.title,
+              when,
+              location: rsvp.location,
+              instructorName,
+              googleUrl,
+              icsUrl,
+            })
         const delivery = await deliverEmail({
           to: rsvp.email,
           subject: entry.subject,
@@ -394,7 +433,7 @@ export async function sendDueClassReminders(options = {}) {
           console.log(`  to: ${rsvp.email}`)
           if (kind === 'thanks') {
             if (bookUrl) console.log(`  Book again: ${bookUrl}`)
-          } else {
+          } else if (kind !== 'cancelled') {
             console.log(`  Google: ${googleUrl}`)
             console.log(`  iCal: ${icsUrl}`)
           }
@@ -406,7 +445,8 @@ export async function sendDueClassReminders(options = {}) {
           logged: delivery.logged === true,
           emailed: delivery.logged !== true,
           ...(includeLinks ? {
-            ...(kind === 'thanks' ? { bookUrl: bookUrl || null } : { googleUrl, icsUrl }),
+            ...(kind === 'thanks' ? { bookUrl: bookUrl || null } : {}),
+            ...(isNotice ? {} : { googleUrl, icsUrl }),
           } : {}),
         })
       } catch (err) {

@@ -9,8 +9,10 @@
  *
  * --now pretends the current time is that UTC instant, so you can trigger
  * the 1-day window (22–26 hours before start), the 2-hour window
- * (30 minutes–2.75 hours before start), or the thank-you
- * (within 3 hours after class ends) without waiting.
+ * (30 minutes–2.75 hours before start), the thank-you
+ * (within 3 hours after class ends), or a cancellation notice
+ * for a class whose RSVP deadline has passed.
+ * A real run records those cancellations before it sends. A dry run does not.
  * --reset clears the "already sent" mark for reminders due at that time.
  * --to limits the run to one RSVP email.
  *

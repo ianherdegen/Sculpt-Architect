@@ -127,6 +127,11 @@ export function thanksIsDue(end: Date, now: Date): boolean {
   return since >= 0 && since <= THANKS_WINDOW_MS
 }
 
+/** Still notify if the hourly job is a little late, and skip classes that already finished. */
+export function cancellationIsDue(end: Date, now: Date): boolean {
+  return now.getTime() - end.getTime() <= THANKS_WINDOW_MS
+}
+
 /** New RSVPs stop this long before the Detroit start time. Cancels stay open. */
 export const RSVP_CLOSE_BEFORE_MS = 60 * 60 * 1000
 

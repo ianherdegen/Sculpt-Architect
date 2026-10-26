@@ -194,6 +194,9 @@ export async function listRsvps(profileUserId: string, userId: string, email: st
 
 const DEFAULT_CANCEL_HOURS = 12
 
+/** Matches the longest cancel-hours setting, so the deadline is recorded when it passes. */
+export const DECISION_LOOKAHEAD_DAYS = 90
+
 function positiveInt(value: unknown, max = 999) {
   const number = typeof value === 'number' ? value : Number(value)
   if (!Number.isInteger(number) || number < 1 || number > max) return null
@@ -271,7 +274,7 @@ async function rsvpCounts(profileUserId: string, fromYmd: string, toYmd: string)
 
 export async function syncClassDecisions(profileUserId: string, events: any[], now = new Date()) {
   const fromYmd = addDays(zonedToday(now), -1)
-  const toYmd = addDays(fromYmd, 9)
+  const toYmd = addDays(zonedToday(now), DECISION_LOOKAHEAD_DAYS)
   const required = (Array.isArray(events) ? events : [])
     .map((event) => ({ event, requirement: classRequirement(event) }))
     .filter((item) => item.requirement && item.event?.id)
@@ -340,13 +343,13 @@ export async function syncClassDecisions(profileUserId: string, events: any[], n
   }
 }
 
-export async function syncAllClassDecisions() {
+export async function syncAllClassDecisions(now = new Date()) {
   const db = getDb()
   const result = await db.execute('SELECT user_id, events FROM user_profiles')
   for (const row of result.rows) {
     const events = parseJson(row.events, [])
     if (events.some((event) => classRequirement(event))) {
-      await syncClassDecisions(row.user_id as string, events)
+      await syncClassDecisions(row.user_id as string, events, now)
     }
   }
 }

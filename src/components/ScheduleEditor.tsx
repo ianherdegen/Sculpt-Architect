@@ -97,7 +97,9 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
     setEditingEvent(event);
     setTitle(event.title);
     setEventType(event.isRecurring ? 'recurring' : 'single');
-    setDayOfWeek(event.dayOfWeek || 1);
+    // Sunday is 0. A falsy check would treat that as missing and save the class as Monday.
+    const day = Number(event.dayOfWeek);
+    setDayOfWeek(Number.isInteger(day) && day >= 0 && day <= 6 ? day : 1);
     setDate(event.date || '');
     setStartTime(event.startTime);
     setEndTime(event.endTime);
@@ -179,8 +181,14 @@ export function ScheduleEditor({ events, onAddEvent, onUpdateEvent, onDeleteEven
   };
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    const [year, month, day] = dateString.split('-').map(Number);
+    if (!year || !month || !day) return dateString;
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (

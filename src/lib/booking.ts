@@ -101,7 +101,7 @@ export function upcomingWeek(events: ClassEvent[], now = new Date()): ClassOccur
 
     for (const event of events) {
       const matches = event.isRecurring
-        ? event.dayOfWeek === dayOfWeek
+        ? Number(event.dayOfWeek) === dayOfWeek
         : event.date === date
       if (!matches || !showsInUpcomingWeek(event, date, now)) continue
       occurrences.push({

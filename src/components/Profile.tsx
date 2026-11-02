@@ -65,6 +65,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
   const { hasPermission: hasAdminAccess } = usePermission('admin');
   const [isEditing, setIsEditing] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [bookingLinkCopied, setBookingLinkCopied] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialProfile && !isViewerMode);
   const [profile, setProfile] = useState<UserProfile>(
@@ -323,27 +324,52 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
     setSpotifyUrlErrors(newErrors);
   };
 
+  const copyText = async (value: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('clipboard timeout')), 700);
+          navigator.clipboard.writeText(value).then(
+            () => {
+              clearTimeout(timer);
+              resolve();
+            },
+            (err: unknown) => {
+              clearTimeout(timer);
+              reject(err);
+            },
+          );
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+    }
+    const textArea = document.createElement('textarea');
+    textArea.value = value;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+  };
+
   const handleCopyShareLink = async () => {
     const shareId = profile.shareId || userId || '';
     if (!shareId) return;
-    
-    const shareUrl = `${window.location.origin}/profile/${shareId}`;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy link:', error);
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = shareUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    }
+    await copyText(`${window.location.origin}/profile/${shareId}`);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleCopyBookingLink = async () => {
+    const shareId = profile.shareId || userId || '';
+    if (!shareId) return;
+    await copyText(`${window.location.origin}/book/${encodeURIComponent(shareId)}`);
+    setBookingLinkCopied(true);
+    setTimeout(() => setBookingLinkCopied(false), 2000);
   };
 
   // Helper to check if shareId is the default userId (UUID format)
@@ -846,13 +872,34 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                 </p>
               )}
               {(profile.shareId || userId) && (
-                <Button
-                  type="button"
-                  onClick={() => navigate(`/book/${encodeURIComponent(profile.shareId || userId || '')}`)}
-                >
-                  <Calendar className="h-4 w-4" />
-                  {ownsProfile && canInstruct ? 'RSVPs' : 'Bookings'}
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button
+                    type="button"
+                    className="w-full sm:w-auto"
+                    onClick={() => navigate(`/book/${encodeURIComponent(profile.shareId || userId || '')}`)}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    {ownsProfile && canInstruct ? 'RSVPs' : 'Bookings'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={handleCopyBookingLink}
+                  >
+                    {bookingLinkCopied ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="h-4 w-4" />
+                        Copy booking link
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
               {profile.venmoUsername && (
                 <div className="pt-2">

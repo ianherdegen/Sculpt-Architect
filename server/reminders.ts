@@ -205,31 +205,6 @@ async function deliverEmail({ to, subject, html, ics, filename }) {
   return { ok: true, logged: false }
 }
 
-function guestInviteHtml({ bookerName, title, when, location, instructorName, bookUrl }) {
-  const withLine = instructorName
-    ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
-    : ''
-  return `
-    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">You're invited</h2>
-    <p style="color:#030213;font-size:16px;line-height:1.6;margin:0 0 16px;">${escapeHtml(bookerName)} invited you to book this class. This email doesn't hold a spot.</p>
-    <p style="color:#030213;font-size:18px;font-weight:600;margin:0 0 8px;">${escapeHtml(title)}</p>
-    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
-    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
-    ${withLine}
-    <p style="margin:24px 0 8px;"><a href="${escapeHtml(bookUrl)}" style="display:inline-block;padding:12px 18px;background:#030213;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">View the schedule</a></p>
-    <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">RSVP there with your own account. New RSVPs close 1 hour before class.</p>
-    <p style="color:#717182;font-size:13px;line-height:1.6;">If the button doesn't work, copy and paste this link:<br/><a href="${escapeHtml(bookUrl)}" style="color:#030213;">${escapeHtml(bookUrl)}</a></p>
-  `
-}
-
-export async function sendGuestInviteEmail({ to, bookerName, title, when, location, instructorName, bookUrl }) {
-  return deliverEmail({
-    to,
-    subject: `${bookerName} invited you to ${title}`,
-    html: guestInviteHtml({ bookerName, title, when, location, instructorName, bookUrl }),
-  })
-}
-
 async function claimSend(rsvpId, kind) {
   const db = getDb()
   try {

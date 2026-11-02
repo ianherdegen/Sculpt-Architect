@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { bookingService, formatClassDate, formatClassTime, localToday, type ClassRsvp } from '../lib/booking'
-import { calendarDescription, newRsvpsClosed } from '../lib/classCalendar'
+import { calendarDescription } from '../lib/classCalendar'
 import { AddToCalendar } from './AddToCalendar'
 import { LocationClasses } from './LocationClasses'
 import { Button } from './ui/button'
-import { GuestSeat } from './GuestSeat'
 import { ApiError } from '../lib/apiClient'
 
 export function StudentClasses() {
@@ -70,11 +69,6 @@ export function StudentClasses() {
                 await bookingService.cancel(item.instructorShareId, item.eventId, item.classDate)
                 await refresh()
               }}
-              onInviteGuest={async (item, email) => {
-                if (!item.instructorShareId) return
-                await bookingService.inviteGuest(item.instructorShareId, item.eventId, item.classDate, email)
-                await refresh()
-              }}
             />
           ))
         )}
@@ -94,11 +88,9 @@ export function StudentClasses() {
 function ClassRow({
   rsvp,
   onCancel,
-  onInviteGuest,
 }: {
   rsvp: ClassRsvp
   onCancel?: (rsvp: ClassRsvp) => Promise<void>
-  onInviteGuest?: (rsvp: ClassRsvp, email: string) => Promise<void>
 }) {
   const profileLink = rsvp.instructorShareId ? `/book/${rsvp.instructorShareId}` : null
   const upcoming = rsvp.classDate >= localToday()
@@ -154,13 +146,6 @@ function ClassRow({
             <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={busy} onClick={cancel}>
               Cancel RSVP
             </Button>
-          )}
-          {rsvp.instructorShareId && onInviteGuest && (
-            <GuestSeat
-              guestEmail={rsvp.guestEmail}
-              canInvite={!rsvp.cancelled && !rsvp.guestEmail && !newRsvpsClosed(rsvp.classDate, rsvp.startTime)}
-              onInvite={(email) => onInviteGuest(rsvp, email)}
-            />
           )}
           {rowError && <p className="text-sm text-destructive">{rowError}</p>}
         </div>

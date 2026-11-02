@@ -104,17 +104,6 @@ CREATE INDEX IF NOT EXISTS idx_magic_tokens_token ON magic_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_class_rsvps_profile_email ON class_rsvps(profile_user_id, email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_class_rsvps_calendar_token ON class_rsvps(calendar_token);
 
-CREATE TABLE IF NOT EXISTS class_guest_invites (
-  id TEXT PRIMARY KEY,
-  profile_user_id TEXT NOT NULL,
-  event_id TEXT NOT NULL,
-  class_date TEXT NOT NULL,
-  inviter_user_id TEXT NOT NULL,
-  email TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE(profile_user_id, event_id, class_date, inviter_user_id)
-);
-
 CREATE TABLE IF NOT EXISTS class_reminder_sends (
   id TEXT PRIMARY KEY,
   rsvp_id TEXT NOT NULL,

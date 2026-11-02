@@ -27,18 +27,16 @@ import { uploadFile, deleteFileByUrl } from './storage.js'
 import {
   cancelRsvp,
   createRsvp,
-  deleteGuestInvite,
   ensureBookingSchema,
   getBookableProfile,
   getViewMode,
-  inviteGuest,
   listMyRsvps,
   listOccurrenceStatuses,
   listReceivedRsvps,
   listRsvps,
   mergeClassRequirements,
 } from './booking.js'
-import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders, sendGuestInviteEmail } from './reminders.js'
+import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders } from './reminders.js'
 import {
   bindEventLocations,
   createLocation,
@@ -748,45 +746,6 @@ app.post('/api/book/:shareId/rsvps/cancel', requireAuth, async (c) => {
 
   await cancelRsvp(profile.userId, { id: user.id, email: user.email.toLowerCase() }, body.eventId, body.classDate)
   return c.json({ success: true })
-})
-
-function appOrigin() {
-  return (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
-}
-
-app.post('/api/book/:shareId/guest-invite', requireAuth, async (c) => {
-  const user = c.get('user')
-  if (await getViewMode(user.id) !== 'student') {
-    return c.json({ error: 'Switch to Student to book a class.' }, 403)
-  }
-  const body = await c.req.json<{ eventId?: string; classDate?: string; email?: string }>()
-  if (!body.eventId || !body.classDate) {
-    return c.json({ error: 'Class is required' }, 400)
-  }
-
-  const profile = await getBookableProfile(c.req.param('shareId'))
-  if (!profile) return c.json({ error: 'Profile not found' }, 404)
-  if (profile.userId === user.id) {
-    return c.json({ error: 'You can’t book your own class.' }, 403)
-  }
-
-  const account = { id: user.id, email: user.email.toLowerCase() }
-  const result = await inviteGuest(profile, account, body.eventId, body.classDate, body.email)
-  if ('error' in result) return c.json({ error: result.error }, result.status)
-
-  const bookUrl = `${appOrigin()}/book/${encodeURIComponent(profile.shareId)}`
-  let emailed = false
-  try {
-    const delivery = await sendGuestInviteEmail({ ...result.notice, bookUrl })
-    emailed = delivery.ok === true
-  } catch (err) {
-    console.error('[guest-invite] email failed:', err)
-  }
-  if (!emailed) {
-    await deleteGuestInvite(profile.userId, account.id, body.eventId, body.classDate)
-    return c.json({ error: 'Could not send the invite email. Try again.' }, 502)
-  }
-  return c.json({ guestEmail: result.guestEmail }, 201)
 })
 
 function cronAuthorized(header: string | undefined) {

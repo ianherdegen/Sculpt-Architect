@@ -4,7 +4,6 @@ import { bookingService, formatClassDate, formatClassTime, occurrenceKey } from 
 import { newRsvpsClosed } from '../lib/classCalendar'
 import { locationService, type BookableClass, type Studio } from '../lib/locations'
 import { Button } from './ui/button'
-import { GuestSeat } from './GuestSeat'
 import { ApiError } from '../lib/apiClient'
 
 const selectClass = 'border-input bg-input-background flex h-9 w-full rounded-md border px-3 text-sm'
@@ -94,11 +93,6 @@ export function LocationClasses({
     }
   }
 
-  const inviteGuest = async (item: BookableClass, email: string) => {
-    await bookingService.inviteGuest(item.instructorShareId, item.eventId, item.classDate, email)
-    onChanged()
-  }
-
   const cancel = async (item: BookableClass) => {
     const key = occurrenceKey(item.eventId, item.classDate)
     setBusyKey(key)
@@ -182,26 +176,18 @@ export function LocationClasses({
                 ) : item.ownClass ? (
                   <p className="text-sm text-muted-foreground">Your class</p>
                 ) : item.going ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-sm font-medium">Going</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full sm:w-auto"
-                        disabled={busyKey === key}
-                        onClick={() => cancel(item)}
-                      >
-                        Cancel RSVP
-                      </Button>
-                    </div>
-                    <GuestSeat
-                      guestEmail={item.guestEmail}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-sm font-medium">Going</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
                       disabled={busyKey === key}
-                      canInvite={!item.guestEmail && !newRsvpsClosed(item.classDate, item.startTime, now)}
-                      onInvite={(email) => inviteGuest(item, email)}
-                    />
+                      onClick={() => cancel(item)}
+                    >
+                      Cancel RSVP
+                    </Button>
                   </div>
                 ) : newRsvpsClosed(item.classDate, item.startTime, now) ? (
                   <p className="text-sm text-muted-foreground">RSVPs closed</p>

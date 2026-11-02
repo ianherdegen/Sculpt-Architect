@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Calendar, Check, Home } from 'lucide-react';
 import { AddToCalendar } from './AddToCalendar';
-import { GuestSeat } from './GuestSeat';
 import { calendarDescription, newRsvpsClosed } from '../lib/classCalendar';
 import { userProfileService } from '../lib/userProfileService';
 import {
@@ -28,11 +27,6 @@ function emailsForClass(rsvps: ClassRsvp[], eventId: string, date: string) {
   return rsvps
     .filter((rsvp) => rsvp.eventId === eventId && rsvp.classDate === date)
     .map((rsvp) => rsvp.email);
-}
-
-function guestEmailFor(rsvps: ClassRsvp[], eventId: string, date: string) {
-  const match = rsvps.find((rsvp) => rsvp.eventId === eventId && rsvp.classDate === date && rsvp.guestEmail);
-  return match?.guestEmail || null;
 }
 
 function RunStatusLine({ status }: { status?: ClassRunStatus }) {
@@ -301,16 +295,6 @@ export function BookingPage() {
     }
   };
 
-  const inviteGuest = async (occurrence: ClassOccurrence, email: string) => {
-    const key = occurrenceKey(occurrence.eventId, occurrence.date);
-    const result = await bookingService.inviteGuest(shareId, occurrence.eventId, occurrence.date, email);
-    listGeneration.current += 1;
-    setRsvps((current) => current.map((rsvp) => {
-      if (occurrenceKey(rsvp.eventId, rsvp.classDate) !== key) return rsvp;
-      return { ...rsvp, guestEmail: result.guestEmail };
-    }));
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -375,7 +359,6 @@ export function BookingPage() {
                     {group.items.map((item) => {
                       const key = occurrenceKey(item.eventId, item.date);
                       const going = rsvpKeys.has(key);
-                      const guestEmail = guestEmailFor(rsvps, item.eventId, item.date);
                       const rsvpsClosed = newRsvpsClosed(item.date, item.startTime, now);
                       const status = statuses.find((itemStatus) => itemStatus.eventId === item.eventId && itemStatus.classDate === item.date);
                       const cancelledClass = status?.status === 'cancelled';
@@ -392,7 +375,7 @@ export function BookingPage() {
                             <RunStatusLine status={status} />
                           </div>
                           {cancelledClass ? null : canBook && going ? (
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="inline-flex items-center gap-1 text-sm font-medium">
                                   <Check className="h-4 w-4" />
@@ -409,12 +392,6 @@ export function BookingPage() {
                                   Cancel RSVP
                                 </Button>
                               </div>
-                              <GuestSeat
-                                guestEmail={guestEmail}
-                                disabled={busyKey === key}
-                                canInvite={!rsvpsClosed && !guestEmail}
-                                onInvite={!rsvpsClosed && !guestEmail ? (email) => inviteGuest(item, email) : undefined}
-                              />
                               <AddToCalendar
                                 title={item.title}
                                 classDate={item.date}

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { getDb, parseJson, resolveViewMode, rowToBool } from './db.js'
 import { generateId } from './auth.js'
-import { formatWallDate, formatWallTime, newRsvpsClosed, RSVP_CLOSED_MESSAGE, showsInUpcomingWeek, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
+import { newRsvpsClosed, RSVP_CLOSED_MESSAGE, showsInUpcomingWeek, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
 
 let schemaReady = false
 
@@ -50,18 +50,7 @@ export async function ensureBookingSchema() {
       if (!/no such column|duplicate column/i.test(message)) throw err
     }
   }
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS class_guest_invites (
-      id TEXT PRIMARY KEY,
-      profile_user_id TEXT NOT NULL,
-      event_id TEXT NOT NULL,
-      class_date TEXT NOT NULL,
-      inviter_user_id TEXT NOT NULL,
-      email TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(profile_user_id, event_id, class_date, inviter_user_id)
-    )
-  `)
+  await db.execute(`DROP TABLE IF EXISTS class_guest_invites`)
   await db.execute(`
     CREATE TABLE IF NOT EXISTS class_occurrence_decisions (
       id TEXT PRIMARY KEY,
@@ -76,14 +65,6 @@ export async function ensureBookingSchema() {
     )
   `)
   schemaReady = true
-}
-
-export function normalizeBookingEmail(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const email = value.trim().toLowerCase()
-  if (email.length > 254) return null
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
-  return email
 }
 
 function parseYmd(value: unknown): string | null {
@@ -154,7 +135,6 @@ function formatRsvp(row: Record<string, unknown>) {
     end_time: row.end_time as string,
     location: row.location as string,
     created_at: row.created_at as string,
-    guest_email: (row.guest_email as string) || null,
   }
 }
 
@@ -179,25 +159,9 @@ export async function getViewMode(userId: string) {
   return resolveViewMode(result.rows[0])
 }
 
-async function invitesSentBy(userId: string) {
-  const db = getDb()
-  const result = await db.execute({
-    sql: `SELECT profile_user_id, event_id, class_date, email
-          FROM class_guest_invites
-          WHERE inviter_user_id = ?`,
-    args: [userId],
-  })
-  const emails = new Map<string, string>()
-  for (const row of result.rows) {
-    emails.set(`${row.profile_user_id}:${row.event_id}:${row.class_date}`, String(row.email))
-  }
-  return emails
-}
-
 export async function listMyRsvps(userId: string, email: string) {
   await syncAllClassDecisions()
   const db = getDb()
-  const invites = await invitesSentBy(userId)
   const result = await db.execute({
     sql: `SELECT r.*, p.name AS instructor_name, p.share_id AS instructor_share_id,
                  d.status AS decision_status
@@ -214,7 +178,6 @@ export async function listMyRsvps(userId: string, email: string) {
   })
   return result.rows.map((row) => ({
     ...formatRsvp(row),
-    guest_email: invites.get(`${row.profile_user_id}:${row.event_id}:${row.class_date}`) || null,
     instructor_name: (row.instructor_name as string) || '',
     instructor_share_id: (row.instructor_share_id as string) || '',
     cancelled: row.decision_status === 'cancelled',
@@ -223,17 +186,13 @@ export async function listMyRsvps(userId: string, email: string) {
 
 export async function listRsvps(profileUserId: string, userId: string, email: string) {
   const db = getDb()
-  const invites = await invitesSentBy(userId)
   const result = await db.execute({
     sql: `SELECT * FROM class_rsvps
           WHERE profile_user_id = ? AND (user_id = ? OR (user_id IS NULL AND email = ?))
           ORDER BY class_date ASC, start_time ASC`,
     args: [profileUserId, userId, email],
   })
-  return result.rows.map((row) => ({
-    ...formatRsvp(row),
-    guest_email: invites.get(`${profileUserId}:${row.event_id}:${row.class_date}`) || null,
-  }))
+  return result.rows.map((row) => formatRsvp(row))
 }
 
 const DEFAULT_CANCEL_HOURS = 12
@@ -515,108 +474,5 @@ export async function cancelRsvp(profileUserId: string, account: { id: string; e
           WHERE profile_user_id = ? AND event_id = ? AND class_date = ?
             AND (user_id = ? OR (user_id IS NULL AND email = ?))`,
     args: [profileUserId, eventId, classDate, account.id, account.email],
-  })
-}
-
-function classWhen(classDate: string, startTime: string, endTime: string) {
-  return `${formatWallDate(classDate)} · ${formatWallTime(startTime)} – ${formatWallTime(endTime)}`
-}
-
-async function bookerName(userId: string, fallbackEmail: string) {
-  const db = getDb()
-  const result = await db.execute({
-    sql: 'SELECT name FROM user_profiles WHERE user_id = ?',
-    args: [userId],
-  })
-  const name = String(result.rows[0]?.name || '').trim()
-  return name || fallbackEmail
-}
-
-async function assertBookableClass(profile: { userId: string; events: any[] }, eventId: string, classDate: string) {
-  const event = findClass(profile.events, eventId, classDate)
-  if (!event) return { error: 'That class is not on this schedule.', status: 400 as const }
-  if (!showsInUpcomingWeek(event, classDate)) {
-    return { error: 'That class is outside the upcoming week.', status: 400 as const }
-  }
-  await syncClassDecisions(profile.userId, profile.events)
-  if (classRequirement(event) && await occurrenceDecision(profile.userId, eventId, classDate) === 'cancelled') {
-    return { error: 'This class was cancelled because it did not get enough RSVPs.', status: 409 as const }
-  }
-  if (newRsvpsClosed(classDate, event.startTime)) {
-    return { error: RSVP_CLOSED_MESSAGE, status: 400 as const }
-  }
-  return { event }
-}
-
-export async function inviteGuest(
-  profile: { userId: string; name?: string; shareId?: string; events: any[] },
-  account: { id: string; email: string },
-  eventId: string,
-  classDate: string,
-  rawEmail: unknown,
-) {
-  const guestEmail = normalizeBookingEmail(rawEmail)
-  if (!guestEmail) return { error: 'Enter a valid email.', status: 400 as const }
-  if (guestEmail === account.email) {
-    return { error: 'Invite someone else’s email.', status: 400 as const }
-  }
-
-  const ready = await assertBookableClass(profile, eventId, classDate)
-  if ('error' in ready) return ready
-  const event = ready.event
-
-  const db = getDb()
-  const attending = await db.execute({
-    sql: `SELECT id FROM class_rsvps
-          WHERE profile_user_id = ? AND event_id = ? AND class_date = ?
-            AND (user_id = ? OR (user_id IS NULL AND email = ?))`,
-    args: [profile.userId, eventId, classDate, account.id, account.email],
-  })
-  if (attending.rows.length === 0) {
-    return { error: 'RSVP yourself before inviting a guest.', status: 400 as const }
-  }
-
-  const existing = await db.execute({
-    sql: `SELECT email FROM class_guest_invites
-          WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND inviter_user_id = ?`,
-    args: [profile.userId, eventId, classDate, account.id],
-  })
-  if (existing.rows.length > 0) {
-    return { error: 'You already invited someone to this class.', status: 409 as const }
-  }
-
-  const id = generateId()
-  try {
-    await db.execute({
-      sql: `INSERT INTO class_guest_invites
-            (id, profile_user_id, event_id, class_date, inviter_user_id, email)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [id, profile.userId, eventId, classDate, account.id, guestEmail],
-    })
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    if (!/UNIQUE/i.test(message)) throw err
-    return { error: 'You already invited someone to this class.', status: 409 as const }
-  }
-
-  return {
-    guestEmail,
-    notice: {
-      to: guestEmail,
-      bookerName: await bookerName(account.id, account.email),
-      title: event.title as string,
-      when: classWhen(classDate, event.startTime, event.endTime),
-      location: event.location as string,
-      instructorName: profile.name || '',
-    },
-  }
-}
-
-export async function deleteGuestInvite(profileUserId: string, inviterUserId: string, eventId: string, classDate: string) {
-  const db = getDb()
-  await db.execute({
-    sql: `DELETE FROM class_guest_invites
-          WHERE profile_user_id = ? AND inviter_user_id = ? AND event_id = ? AND class_date = ?`,
-    args: [profileUserId, inviterUserId, eventId, classDate],
   })
 }

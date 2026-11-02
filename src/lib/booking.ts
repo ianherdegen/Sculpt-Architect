@@ -25,7 +25,6 @@ export interface ClassRsvp {
   instructorName?: string
   instructorShareId?: string
   cancelled?: boolean
-  guestEmail?: string | null
 }
 
 export interface ClassRunStatus {
@@ -51,7 +50,6 @@ interface ApiRsvp {
   instructor_name?: string
   instructor_share_id?: string
   cancelled?: boolean
-  guest_email?: string | null
 }
 
 interface ApiOccurrence {
@@ -136,7 +134,6 @@ function toRsvp(row: ApiRsvp): ClassRsvp {
     instructorName: row.instructor_name || '',
     instructorShareId: row.instructor_share_id || '',
     cancelled: row.cancelled === true,
-    guestEmail: row.guest_email || null,
   }
 }
 
@@ -204,11 +201,4 @@ export const bookingService = {
     )
   },
 
-  async inviteGuest(shareId: string, eventId: string, classDate: string, email: string): Promise<{ guestEmail: string }> {
-    return api.post<{ guestEmail: string }>(
-      `/book/${encodeURIComponent(shareId)}/guest-invite`,
-      { eventId, classDate, email },
-      true
-    )
-  },
 }

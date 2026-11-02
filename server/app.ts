@@ -25,23 +25,20 @@ import { requireAuth } from './middleware.js'
 import { findSequencesUsingVariation } from './variationCheck.js'
 import { uploadFile, deleteFileByUrl } from './storage.js'
 import {
-  addGuest,
   cancelRsvp,
-  claimRsvpsForAccount,
   createRsvp,
+  deleteGuestInvite,
   ensureBookingSchema,
   getBookableProfile,
-  getGuestInvite,
   getViewMode,
+  inviteGuest,
   listMyRsvps,
   listOccurrenceStatuses,
   listReceivedRsvps,
   listRsvps,
   mergeClassRequirements,
-  removeGuest,
-  removeGuestByToken,
 } from './booking.js'
-import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders, sendGuestAddedEmail, sendGuestRemovedEmail } from './reminders.js'
+import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders, sendGuestInviteEmail } from './reminders.js'
 import {
   bindEventLocations,
   createLocation,
@@ -158,7 +155,6 @@ app.post('/api/auth/signup', async (c) => {
   ])
 
   const token = await createToken({ id: userId, email: email.toLowerCase() })
-  await claimRsvpsForAccount(userId, email.toLowerCase())
   return c.json({ token, user: { id: userId, email: email.toLowerCase() } })
 })
 
@@ -191,8 +187,6 @@ app.post('/api/auth/signin', async (c) => {
   if (profile.rows.length > 0 && profile.rows[0].is_banned === 1) {
     return c.json({ error: 'Your account has been banned. Please contact support if you believe this is an error.' }, 403)
   }
-  await claimRsvpsForAccount(userId, row.email as string)
-
   const token = await createToken({ id: userId, email: row.email as string })
   return c.json({ token, user: { id: userId, email: row.email as string } })
 })
@@ -227,8 +221,6 @@ app.post('/api/auth/magic-link', async (c) => {
   } else {
     userId = userResult.rows[0].id as string
   }
-
-  await claimRsvpsForAccount(userId, email.toLowerCase())
 
   const token = generateMagicToken()
   const tokenId = generateId()
@@ -324,7 +316,6 @@ app.get('/api/auth/verify-magic-link', async (c) => {
 
   const userId = row.user_id as string
   const email = row.email as string
-  await claimRsvpsForAccount(userId, email)
   const jwt = await createToken({ id: userId, email })
   return c.json({ token: jwt, user: { id: userId, email } })
 })
@@ -763,42 +754,7 @@ function appOrigin() {
   return (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
 }
 
-async function emailGuestAdded(notice: { token: string }) {
-  try {
-    const delivery = await sendGuestAddedEmail({
-      ...notice,
-      removeUrl: `${appOrigin()}/guest/${notice.token}`,
-    })
-    return delivery.ok === true
-  } catch (err) {
-    console.error('[guest-rsvp] email failed:', err)
-    return false
-  }
-}
-
-async function emailGuestRemoved(notice: { to: string }) {
-  try {
-    const delivery = await sendGuestRemovedEmail(notice)
-    return delivery.ok === true
-  } catch (err) {
-    console.error('[guest-rsvp] email failed:', err)
-    return false
-  }
-}
-
-app.get('/api/book/guest/:token', async (c) => {
-  const invite = await getGuestInvite(c.req.param('token'))
-  if (!invite) return c.json({ error: 'You’re not on this class.' }, 404)
-  return c.json(invite)
-})
-
-app.post('/api/book/guest/:token/remove', async (c) => {
-  const result = await removeGuestByToken(c.req.param('token'))
-  if ('error' in result) return c.json({ error: result.error }, result.status)
-  return c.json({ success: true })
-})
-
-app.post('/api/book/:shareId/guests', requireAuth, async (c) => {
+app.post('/api/book/:shareId/guest-invite', requireAuth, async (c) => {
   const user = c.get('user')
   if (await getViewMode(user.id) !== 'student') {
     return c.json({ error: 'Switch to Student to book a class.' }, 403)
@@ -814,43 +770,23 @@ app.post('/api/book/:shareId/guests', requireAuth, async (c) => {
     return c.json({ error: 'You can’t book your own class.' }, 403)
   }
 
-  const result = await addGuest(
-    profile,
-    { id: user.id, email: user.email.toLowerCase() },
-    body.eventId,
-    body.classDate,
-    body.email,
-  )
+  const account = { id: user.id, email: user.email.toLowerCase() }
+  const result = await inviteGuest(profile, account, body.eventId, body.classDate, body.email)
   if ('error' in result) return c.json({ error: result.error }, result.status)
-  const emailed = await emailGuestAdded(result.notice)
-  return c.json({ guestEmail: result.guestEmail, emailed }, 201)
-})
 
-app.post('/api/book/:shareId/guests/remove', requireAuth, async (c) => {
-  const user = c.get('user')
-  if (await getViewMode(user.id) !== 'student') {
-    return c.json({ error: 'Switch to Student to change a booking.' }, 403)
+  const bookUrl = `${appOrigin()}/book/${encodeURIComponent(profile.shareId)}`
+  let emailed = false
+  try {
+    const delivery = await sendGuestInviteEmail({ ...result.notice, bookUrl })
+    emailed = delivery.ok === true
+  } catch (err) {
+    console.error('[guest-invite] email failed:', err)
   }
-  const body = await c.req.json<{ eventId?: string; classDate?: string }>()
-  if (!body.eventId || !body.classDate) {
-    return c.json({ error: 'Class is required' }, 400)
+  if (!emailed) {
+    await deleteGuestInvite(profile.userId, account.id, body.eventId, body.classDate)
+    return c.json({ error: 'Could not send the invite email. Try again.' }, 502)
   }
-
-  const profile = await getBookableProfile(c.req.param('shareId'))
-  if (!profile) return c.json({ error: 'Profile not found' }, 404)
-  if (profile.userId === user.id) {
-    return c.json({ error: 'You can’t book your own class.' }, 403)
-  }
-
-  const result = await removeGuest(
-    profile.userId,
-    { id: user.id, email: user.email.toLowerCase() },
-    body.eventId,
-    body.classDate,
-  )
-  if ('error' in result) return c.json({ error: result.error }, result.status)
-  if (result.removed) await emailGuestRemoved(result.notice)
-  return c.json({ success: true })
+  return c.json({ guestEmail: result.guestEmail }, 201)
 })
 
 function cronAuthorized(header: string | undefined) {

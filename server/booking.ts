@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { getDb, parseJson, resolveViewMode, rowToBool } from './db.js'
 import { generateId } from './auth.js'
-import { classInstants, formatWallDate, formatWallTime, newRsvpsClosed, RSVP_CLOSED_MESSAGE, showsInUpcomingWeek, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
+import { formatWallDate, formatWallTime, newRsvpsClosed, RSVP_CLOSED_MESSAGE, showsInUpcomingWeek, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
 
 let schemaReady = false
 
@@ -40,26 +40,27 @@ export async function ensureBookingSchema() {
     const message = err instanceof Error ? err.message : String(err)
     if (!/duplicate column/i.test(message)) throw err
   }
-  try {
-    await db.execute(`ALTER TABLE class_rsvps ADD COLUMN added_by TEXT`)
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    if (!/duplicate column/i.test(message)) throw err
-  }
-  try {
-    await db.execute(`ALTER TABLE class_rsvps ADD COLUMN guest_token TEXT`)
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    if (!/duplicate column/i.test(message)) throw err
+  await db.execute(`DROP INDEX IF EXISTS idx_class_rsvps_guest_token`)
+  await db.execute(`DROP INDEX IF EXISTS idx_class_rsvps_one_guest`)
+  for (const column of ['added_by', 'guest_token']) {
+    try {
+      await db.execute(`ALTER TABLE class_rsvps DROP COLUMN ${column}`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (!/no such column|duplicate column/i.test(message)) throw err
+    }
   }
   await db.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_class_rsvps_guest_token
-    ON class_rsvps(guest_token)
-  `)
-  await db.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_class_rsvps_one_guest
-    ON class_rsvps(profile_user_id, event_id, class_date, added_by)
-    WHERE added_by IS NOT NULL
+    CREATE TABLE IF NOT EXISTS class_guest_invites (
+      id TEXT PRIMARY KEY,
+      profile_user_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      class_date TEXT NOT NULL,
+      inviter_user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(profile_user_id, event_id, class_date, inviter_user_id)
+    )
   `)
   await db.execute(`
     CREATE TABLE IF NOT EXISTS class_occurrence_decisions (
@@ -154,8 +155,6 @@ function formatRsvp(row: Record<string, unknown>) {
     location: row.location as string,
     created_at: row.created_at as string,
     guest_email: (row.guest_email as string) || null,
-    attending: row.attending === false ? false : true,
-    added_as_guest: Boolean(row.added_by) && row.attending !== false,
   }
 }
 
@@ -180,12 +179,12 @@ export async function getViewMode(userId: string) {
   return resolveViewMode(result.rows[0])
 }
 
-async function guestsAddedBy(userId: string) {
+async function invitesSentBy(userId: string) {
   const db = getDb()
   const result = await db.execute({
     sql: `SELECT profile_user_id, event_id, class_date, email
-          FROM class_rsvps
-          WHERE added_by = ?`,
+          FROM class_guest_invites
+          WHERE inviter_user_id = ?`,
     args: [userId],
   })
   const emails = new Map<string, string>()
@@ -198,7 +197,7 @@ async function guestsAddedBy(userId: string) {
 export async function listMyRsvps(userId: string, email: string) {
   await syncAllClassDecisions()
   const db = getDb()
-  const guests = await guestsAddedBy(userId)
+  const invites = await invitesSentBy(userId)
   const result = await db.execute({
     sql: `SELECT r.*, p.name AS instructor_name, p.share_id AS instructor_share_id,
                  d.status AS decision_status
@@ -213,88 +212,28 @@ export async function listMyRsvps(userId: string, email: string) {
           ORDER BY r.class_date ASC, r.start_time ASC`,
     args: [userId, email, userId],
   })
-  const mine = result.rows.map((row) => ({
+  return result.rows.map((row) => ({
     ...formatRsvp(row),
-    guest_email: guests.get(`${row.profile_user_id}:${row.event_id}:${row.class_date}`) || null,
+    guest_email: invites.get(`${row.profile_user_id}:${row.event_id}:${row.class_date}`) || null,
     instructor_name: (row.instructor_name as string) || '',
     instructor_share_id: (row.instructor_share_id as string) || '',
     cancelled: row.decision_status === 'cancelled',
   }))
-  const covered = new Set(result.rows.map((row) => `${row.profile_user_id}:${row.event_id}:${row.class_date}`))
-  const orphans = await db.execute({
-    sql: `SELECT r.*, p.name AS instructor_name, p.share_id AS instructor_share_id,
-                 d.status AS decision_status
-          FROM class_rsvps r
-          LEFT JOIN user_profiles p ON p.user_id = r.profile_user_id
-          LEFT JOIN class_occurrence_decisions d
-            ON d.profile_user_id = r.profile_user_id
-           AND d.event_id = r.event_id
-           AND d.class_date = r.class_date
-          WHERE r.added_by = ? AND r.profile_user_id != ?
-          ORDER BY r.class_date ASC, r.start_time ASC`,
-    args: [userId, userId],
-  })
-  const kept = orphans.rows
-    .filter((row) => !covered.has(`${row.profile_user_id}:${row.event_id}:${row.class_date}`))
-    .map((row) => ({
-      ...formatRsvp({
-        id: row.id,
-        event_id: row.event_id,
-        class_date: row.class_date,
-        email: row.email,
-        title: row.title,
-        start_time: row.start_time,
-        end_time: row.end_time,
-        location: row.location,
-        created_at: row.created_at,
-        attending: false,
-        guest_email: row.email,
-        added_by: null,
-      }),
-      instructor_name: (row.instructor_name as string) || '',
-      instructor_share_id: (row.instructor_share_id as string) || '',
-      cancelled: row.decision_status === 'cancelled',
-    }))
-  return [...mine, ...kept].sort((a, b) => String(a.class_date).localeCompare(String(b.class_date)) || String(a.start_time).localeCompare(String(b.start_time)))
 }
 
 export async function listRsvps(profileUserId: string, userId: string, email: string) {
   const db = getDb()
-  const guests = await guestsAddedBy(userId)
+  const invites = await invitesSentBy(userId)
   const result = await db.execute({
     sql: `SELECT * FROM class_rsvps
           WHERE profile_user_id = ? AND (user_id = ? OR (user_id IS NULL AND email = ?))
           ORDER BY class_date ASC, start_time ASC`,
     args: [profileUserId, userId, email],
   })
-  const mine = result.rows.map((row) => ({
+  return result.rows.map((row) => ({
     ...formatRsvp(row),
-    guest_email: guests.get(`${profileUserId}:${row.event_id}:${row.class_date}`) || null,
+    guest_email: invites.get(`${profileUserId}:${row.event_id}:${row.class_date}`) || null,
   }))
-  const covered = new Set(result.rows.map((row) => `${row.event_id}:${row.class_date}`))
-  const orphans = await db.execute({
-    sql: `SELECT * FROM class_rsvps
-          WHERE profile_user_id = ? AND added_by = ?
-          ORDER BY class_date ASC, start_time ASC`,
-    args: [profileUserId, userId],
-  })
-  const kept = orphans.rows
-    .filter((row) => !covered.has(`${row.event_id}:${row.class_date}`))
-    .map((row) => formatRsvp({
-      id: row.id,
-      event_id: row.event_id,
-      class_date: row.class_date,
-      email: row.email,
-      title: row.title,
-      start_time: row.start_time,
-      end_time: row.end_time,
-      location: row.location,
-      created_at: row.created_at,
-      attending: false,
-      guest_email: row.email,
-      added_by: null,
-    }))
-  return [...mine, ...kept]
 }
 
 const DEFAULT_CANCEL_HOURS = 12
@@ -574,29 +513,9 @@ export async function cancelRsvp(profileUserId: string, account: { id: string; e
   await db.execute({
     sql: `DELETE FROM class_rsvps
           WHERE profile_user_id = ? AND event_id = ? AND class_date = ?
-            AND (user_id = ? OR (user_id IS NULL AND email = ?))
-            AND (added_by IS NULL OR added_by != ?)`,
-    args: [profileUserId, eventId, classDate, account.id, account.email, account.id],
+            AND (user_id = ? OR (user_id IS NULL AND email = ?))`,
+    args: [profileUserId, eventId, classDate, account.id, account.email],
   })
-}
-
-export async function claimRsvpsForAccount(userId: string, email: string) {
-  const normalized = normalizeBookingEmail(email)
-  if (!normalized) return
-  await ensureBookingSchema()
-  const db = getDb()
-  await db.execute({
-    sql: `UPDATE class_rsvps
-          SET user_id = ?
-          WHERE user_id IS NULL AND email = ?`,
-    args: [userId, normalized],
-  })
-}
-
-function classHasStarted(classDate: string, startTime: string, endTime: string, now = new Date()) {
-  const instants = classInstants({ classDate, startTime, endTime })
-  if (!instants) return false
-  return now.getTime() >= instants.start.getTime()
 }
 
 function classWhen(classDate: string, startTime: string, endTime: string) {
@@ -629,8 +548,8 @@ async function assertBookableClass(profile: { userId: string; events: any[] }, e
   return { event }
 }
 
-export async function addGuest(
-  profile: { userId: string; name?: string; events: any[] },
+export async function inviteGuest(
+  profile: { userId: string; name?: string; shareId?: string; events: any[] },
   account: { id: string; email: string },
   eventId: string,
   classDate: string,
@@ -639,7 +558,7 @@ export async function addGuest(
   const guestEmail = normalizeBookingEmail(rawEmail)
   if (!guestEmail) return { error: 'Enter a valid email.', status: 400 as const }
   if (guestEmail === account.email) {
-    return { error: 'Add someone else’s email.', status: 400 as const }
+    return { error: 'Invite someone else’s email.', status: 400 as const }
   }
 
   const ready = await assertBookableClass(profile, eventId, classDate)
@@ -654,68 +573,30 @@ export async function addGuest(
     args: [profile.userId, eventId, classDate, account.id, account.email],
   })
   if (attending.rows.length === 0) {
-    return { error: 'RSVP yourself before adding a guest.', status: 400 as const }
+    return { error: 'RSVP yourself before inviting a guest.', status: 400 as const }
   }
 
-  const existingGuest = await db.execute({
-    sql: `SELECT id FROM class_rsvps
-          WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND added_by = ?`,
+  const existing = await db.execute({
+    sql: `SELECT email FROM class_guest_invites
+          WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND inviter_user_id = ?`,
     args: [profile.userId, eventId, classDate, account.id],
   })
-  if (existingGuest.rows.length > 0) {
-    return { error: 'You already added a guest to this class.', status: 409 as const }
+  if (existing.rows.length > 0) {
+    return { error: 'You already invited someone to this class.', status: 409 as const }
   }
 
-  const taken = await db.execute({
-    sql: `SELECT id FROM class_rsvps
-          WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND email = ?`,
-    args: [profile.userId, eventId, classDate, guestEmail],
-  })
-  if (taken.rows.length > 0) {
-    return { error: 'That email is already booked for this class.', status: 409 as const }
-  }
-
-  const guestAccount = await db.execute({
-    sql: 'SELECT id FROM users WHERE email = ?',
-    args: [guestEmail],
-  })
-  const guestUserId = (guestAccount.rows[0]?.id as string) || null
   const id = generateId()
-  const guestToken = generateId()
-  const calendarToken = generateId()
   try {
     await db.execute({
-      sql: `INSERT INTO class_rsvps
-            (id, profile_user_id, event_id, class_date, email, title, start_time, end_time, location, user_id, calendar_token, added_by, guest_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        id,
-        profile.userId,
-        eventId,
-        classDate,
-        guestEmail,
-        event.title,
-        event.startTime,
-        event.endTime,
-        event.location,
-        guestUserId,
-        calendarToken,
-        account.id,
-        guestToken,
-      ],
+      sql: `INSERT INTO class_guest_invites
+            (id, profile_user_id, event_id, class_date, inviter_user_id, email)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [id, profile.userId, eventId, classDate, account.id, guestEmail],
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     if (!/UNIQUE/i.test(message)) throw err
-    const raced = await db.execute({
-      sql: `SELECT id FROM class_rsvps
-            WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND added_by = ?`,
-      args: [profile.userId, eventId, classDate, account.id],
-    })
-    if (raced.rows.length > 0) {
-      return { error: 'You already added a guest to this class.', status: 409 as const }
-    }
-    return { error: 'That email is already booked for this class.', status: 409 as const }
+    return { error: 'You already invited someone to this class.', status: 409 as const }
   }
 
   return {
@@ -727,85 +608,15 @@ export async function addGuest(
       when: classWhen(classDate, event.startTime, event.endTime),
       location: event.location as string,
       instructorName: profile.name || '',
-      token: guestToken,
     },
   }
 }
 
-async function guestRowForBooker(profileUserId: string, accountId: string, eventId: string, classDate: string) {
-  const db = getDb()
-  const result = await db.execute({
-    sql: `SELECT * FROM class_rsvps
-          WHERE profile_user_id = ? AND event_id = ? AND class_date = ? AND added_by = ?`,
-    args: [profileUserId, eventId, classDate, accountId],
-  })
-  return result.rows[0] || null
-}
-
-export async function removeGuest(
-  profileUserId: string,
-  account: { id: string; email: string },
-  eventId: string,
-  classDate: string,
-) {
-  const row = await guestRowForBooker(profileUserId, account.id, eventId, classDate)
-  if (!row) return { removed: false as const }
-  if (classHasStarted(String(row.class_date), String(row.start_time), String(row.end_time))) {
-    return { error: 'This class has already started.', status: 409 as const }
-  }
+export async function deleteGuestInvite(profileUserId: string, inviterUserId: string, eventId: string, classDate: string) {
   const db = getDb()
   await db.execute({
-    sql: 'DELETE FROM class_rsvps WHERE id = ?',
-    args: [row.id],
+    sql: `DELETE FROM class_guest_invites
+          WHERE profile_user_id = ? AND inviter_user_id = ? AND event_id = ? AND class_date = ?`,
+    args: [profileUserId, inviterUserId, eventId, classDate],
   })
-  return {
-    removed: true as const,
-    notice: {
-      to: String(row.email),
-      bookerName: await bookerName(account.id, account.email),
-      title: String(row.title),
-      when: classWhen(String(row.class_date), String(row.start_time), String(row.end_time)),
-      location: String(row.location),
-    },
-  }
-}
-
-export async function getGuestInvite(token: string) {
-  if (!token || token.length > 80) return null
-  await ensureBookingSchema()
-  const db = getDb()
-  const result = await db.execute({
-    sql: `SELECT r.*, instructor.name AS instructor_name
-          FROM class_rsvps r
-          LEFT JOIN user_profiles instructor ON instructor.user_id = r.profile_user_id
-          WHERE r.guest_token = ?`,
-    args: [token],
-  })
-  const row = result.rows[0]
-  if (!row) return null
-  const started = classHasStarted(String(row.class_date), String(row.start_time), String(row.end_time))
-  return {
-    status: started ? 'started' as const : 'open' as const,
-    title: String(row.title),
-    class_date: String(row.class_date),
-    start_time: String(row.start_time),
-    end_time: String(row.end_time),
-    location: String(row.location),
-    instructor_name: String(row.instructor_name || ''),
-    email: String(row.email),
-  }
-}
-
-export async function removeGuestByToken(token: string) {
-  const invite = await getGuestInvite(token)
-  if (!invite) return { error: 'You’re not on this class.', status: 404 as const }
-  if (invite.status === 'started') {
-    return { error: 'This link expired when the class started.', status: 410 as const }
-  }
-  const db = getDb()
-  await db.execute({
-    sql: 'DELETE FROM class_rsvps WHERE guest_token = ?',
-    args: [token],
-  })
-  return { success: true as const }
 }

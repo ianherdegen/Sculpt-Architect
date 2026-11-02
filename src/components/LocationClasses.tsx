@@ -94,14 +94,8 @@ export function LocationClasses({
     }
   }
 
-  const addGuest = async (item: BookableClass, email: string) => {
-    const result = await bookingService.addGuest(item.instructorShareId, item.eventId, item.classDate, email)
-    onChanged()
-    return result
-  }
-
-  const removeGuest = async (item: BookableClass) => {
-    await bookingService.removeGuest(item.instructorShareId, item.eventId, item.classDate)
+  const inviteGuest = async (item: BookableClass, email: string) => {
+    await bookingService.inviteGuest(item.instructorShareId, item.eventId, item.classDate, email)
     onChanged()
   }
 
@@ -171,28 +165,17 @@ export function LocationClasses({
                   )}
                 </div>
                 {item.cancelled ? (
-                  item.going || item.guestEmail ? (
-                    <div className="space-y-2">
-                      {item.going && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="w-full sm:w-auto"
-                          disabled={busyKey === key}
-                          onClick={() => cancel(item)}
-                        >
-                          Cancel RSVP
-                        </Button>
-                      )}
-                      {item.guestEmail && (
-                        <GuestSeat
-                          guestEmail={item.guestEmail}
-                          disabled={busyKey === key}
-                          onRemove={() => removeGuest(item)}
-                        />
-                      )}
-                    </div>
+                  item.going ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      disabled={busyKey === key}
+                      onClick={() => cancel(item)}
+                    >
+                      Cancel RSVP
+                    </Button>
                   ) : item.ownClass ? (
                     <p className="text-sm text-muted-foreground">Your class</p>
                   ) : null
@@ -216,31 +199,9 @@ export function LocationClasses({
                     <GuestSeat
                       guestEmail={item.guestEmail}
                       disabled={busyKey === key}
-                      canAdd={!item.guestEmail && !newRsvpsClosed(item.classDate, item.startTime, now)}
-                      onAdd={(email) => addGuest(item, email)}
-                      onRemove={item.guestEmail ? () => removeGuest(item) : undefined}
+                      canInvite={!item.guestEmail && !newRsvpsClosed(item.classDate, item.startTime, now)}
+                      onInvite={(email) => inviteGuest(item, email)}
                     />
-                  </div>
-                ) : item.guestEmail ? (
-                  <div className="space-y-3">
-                    <GuestSeat
-                      guestEmail={item.guestEmail}
-                      disabled={busyKey === key}
-                      onRemove={() => removeGuest(item)}
-                    />
-                    {newRsvpsClosed(item.classDate, item.startTime, now) ? (
-                      <p className="text-sm text-muted-foreground">RSVPs closed</p>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="w-full sm:w-auto"
-                        disabled={busyKey === key}
-                        onClick={() => reserve(item)}
-                      >
-                        RSVP
-                      </Button>
-                    )}
                   </div>
                 ) : newRsvpsClosed(item.classDate, item.startTime, now) ? (
                   <p className="text-sm text-muted-foreground">RSVPs closed</p>

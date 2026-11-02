@@ -473,8 +473,8 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
   const going = new Set(rsvps.rows.map((row) => `${row.profile_user_id}:${row.event_id}:${row.class_date}`))
   const added = await db.execute({
     sql: `SELECT profile_user_id, event_id, class_date, email
-          FROM class_rsvps
-          WHERE class_date >= ? AND class_date <= ? AND added_by = ?`,
+          FROM class_guest_invites
+          WHERE class_date >= ? AND class_date <= ? AND inviter_user_id = ?`,
     args: [today, endDate, account.id],
   })
   const guestEmails = new Map(

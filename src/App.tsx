@@ -9,7 +9,6 @@ import { MagicLinkVerify } from './components/MagicLinkVerify';
 import { Profile } from './components/Profile';
 import { PublicProfile } from './components/PublicProfile';
 import { BookingPage } from './components/BookingPage';
-import { GuestRsvpPage } from './components/GuestRsvpPage';
 import { AdminPage } from './components/AdminPage';
 import { Pose, PoseVariation, Sequence, PoseInstance, GroupBlock } from './types';
 import { poseService, poseVariationService, sequenceService } from './lib/supabaseService';
@@ -45,8 +44,6 @@ function PageTitle() {
         return 'Public Profile | Sculpt Architect';
       } else if (path.startsWith('/book/')) {
         return 'Bookings | Sculpt Architect';
-      } else if (path.startsWith('/guest/')) {
-        return 'Class RSVP | Sculpt Architect';
       }
       
       return 'Sculpt Architect | Home';
@@ -1012,10 +1009,6 @@ export default function App() {
       <Route
         path="/book/:shareId"
         element={<BookingPage />}
-      />
-      <Route
-        path="/guest/:token"
-        element={<GuestRsvpPage />}
       />
       <Route
         path="/sequence/:id"

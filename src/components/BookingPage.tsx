@@ -24,21 +24,15 @@ import { useViewMode } from '../lib/viewMode';
 import type { ClassEvent } from '../lib/types';
 import '../styles/booking-form.css';
 
-function peopleForClass(rsvps: ClassRsvp[], eventId: string, date: string) {
-  return rsvps.filter((rsvp) => rsvp.eventId === eventId && rsvp.classDate === date && rsvp.attending !== false);
-}
-
-function isAttending(rsvps: ClassRsvp[], eventId: string, date: string) {
-  return peopleForClass(rsvps, eventId, date).length > 0;
+function emailsForClass(rsvps: ClassRsvp[], eventId: string, date: string) {
+  return rsvps
+    .filter((rsvp) => rsvp.eventId === eventId && rsvp.classDate === date)
+    .map((rsvp) => rsvp.email);
 }
 
 function guestEmailFor(rsvps: ClassRsvp[], eventId: string, date: string) {
   const match = rsvps.find((rsvp) => rsvp.eventId === eventId && rsvp.classDate === date && rsvp.guestEmail);
   return match?.guestEmail || null;
-}
-
-function addedAsGuest(rsvps: ClassRsvp[], eventId: string, date: string) {
-  return peopleForClass(rsvps, eventId, date).some((rsvp) => rsvp.addedAsGuest);
 }
 
 function RunStatusLine({ status }: { status?: ClassRunStatus }) {
@@ -93,7 +87,7 @@ function ReceivedRsvps({
             <div key={group.date} className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground">{formatClassDate(group.date)}</h4>
               {group.items.map((item) => {
-                const people = peopleForClass(rsvps, item.eventId, item.date);
+                const emails = emailsForClass(rsvps, item.eventId, item.date);
                 const status = statuses.find((itemStatus) => itemStatus.eventId === item.eventId && itemStatus.classDate === item.date);
                 return (
                   <div key={occurrenceKey(item.eventId, item.date)} className="p-4 border rounded-lg bg-card space-y-2">
@@ -105,15 +99,12 @@ function ReceivedRsvps({
                       <p className="text-sm text-muted-foreground">{item.location}</p>
                       <RunStatusLine status={status} />
                     </div>
-                    {people.length === 0 ? (
+                    {emails.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No RSVPs yet</p>
                     ) : (
                       <ul className="text-sm space-y-2">
-                        {people.map((rsvp) => (
-                          <li key={rsvp.id}>
-                            {rsvp.email}
-                            {rsvp.addedAsGuest ? ' · guest' : ''}
-                          </li>
+                        {emails.map((address) => (
+                          <li key={address}>{address}</li>
                         ))}
                       </ul>
                     )}
@@ -143,10 +134,7 @@ function ReceivedRsvps({
                 </div>
                 <ul className="text-sm space-y-2">
                   {group.map((rsvp) => (
-                    <li key={rsvp.id}>
-                      {rsvp.email}
-                      {rsvp.addedAsGuest ? ' · guest' : ''}
-                    </li>
+                    <li key={rsvp.id}>{rsvp.email}</li>
                   ))}
                 </ul>
               </div>
@@ -264,6 +252,10 @@ export function BookingPage() {
     };
   }, [authLoading, modeLoading, user, profileUserId, canInstruct, shareId]);
 
+  const rsvpKeys = useMemo(
+    () => new Set(rsvps.map((rsvp) => occurrenceKey(rsvp.eventId, rsvp.classDate))),
+    [rsvps]
+  );
   const classesByDate = useMemo(() => {
     const groups: { date: string; items: ClassOccurrence[] }[] = [];
     for (const item of classes) {
@@ -300,18 +292,7 @@ export function BookingPage() {
     try {
       await bookingService.cancel(shareId, eventId, classDate);
       listGeneration.current += 1;
-      setRsvps((current) => {
-        const next: ClassRsvp[] = [];
-        for (const rsvp of current) {
-          if (occurrenceKey(rsvp.eventId, rsvp.classDate) !== key) {
-            next.push(rsvp);
-            continue;
-          }
-          if (rsvp.attending === false) continue;
-          if (rsvp.guestEmail) next.push({ ...rsvp, attending: false });
-        }
-        return next;
-      });
+      setRsvps((current) => current.filter((rsvp) => occurrenceKey(rsvp.eventId, rsvp.classDate) !== key));
       setStatuses(await bookingService.listOccurrences(shareId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not cancel RSVP.');
@@ -320,28 +301,14 @@ export function BookingPage() {
     }
   };
 
-  const addGuest = async (occurrence: ClassOccurrence, email: string) => {
+  const inviteGuest = async (occurrence: ClassOccurrence, email: string) => {
     const key = occurrenceKey(occurrence.eventId, occurrence.date);
-    const result = await bookingService.addGuest(shareId, occurrence.eventId, occurrence.date, email);
+    const result = await bookingService.inviteGuest(shareId, occurrence.eventId, occurrence.date, email);
     listGeneration.current += 1;
     setRsvps((current) => current.map((rsvp) => {
-      if (occurrenceKey(rsvp.eventId, rsvp.classDate) !== key || rsvp.attending === false) return rsvp;
+      if (occurrenceKey(rsvp.eventId, rsvp.classDate) !== key) return rsvp;
       return { ...rsvp, guestEmail: result.guestEmail };
     }));
-    setStatuses(await bookingService.listOccurrences(shareId));
-    return result;
-  };
-
-  const removeGuest = async (eventId: string, classDate: string) => {
-    const key = occurrenceKey(eventId, classDate);
-    await bookingService.removeGuest(shareId, eventId, classDate);
-    listGeneration.current += 1;
-    setRsvps((current) => current.flatMap((rsvp) => {
-      if (occurrenceKey(rsvp.eventId, rsvp.classDate) !== key) return [rsvp];
-      if (rsvp.attending === false) return [];
-      return [{ ...rsvp, guestEmail: null }];
-    }));
-    setStatuses(await bookingService.listOccurrences(shareId));
   };
 
   return (
@@ -407,21 +374,12 @@ export function BookingPage() {
                     <h4 className="text-sm font-medium text-muted-foreground">{formatClassDate(group.date)}</h4>
                     {group.items.map((item) => {
                       const key = occurrenceKey(item.eventId, item.date);
-                      const going = isAttending(rsvps, item.eventId, item.date);
+                      const going = rsvpKeys.has(key);
                       const guestEmail = guestEmailFor(rsvps, item.eventId, item.date);
                       const rsvpsClosed = newRsvpsClosed(item.date, item.startTime, now);
                       const status = statuses.find((itemStatus) => itemStatus.eventId === item.eventId && itemStatus.classDate === item.date);
                       const cancelledClass = status?.status === 'cancelled';
                       const loginHref = `/?return=${encodeURIComponent(`/book/${shareId}`)}`;
-                      const guestSeat = canBook && (going || guestEmail) ? (
-                        <GuestSeat
-                          guestEmail={guestEmail}
-                          disabled={busyKey === key}
-                          canAdd={going && !cancelledClass && !rsvpsClosed && !guestEmail}
-                          onAdd={going && !cancelledClass && !rsvpsClosed ? (email) => addGuest(item, email) : undefined}
-                          onRemove={guestEmail ? () => removeGuest(item.eventId, item.date) : undefined}
-                        />
-                      ) : null;
                       return (
                         <div key={key} className="p-4 border rounded-lg bg-card space-y-3">
                           <div>
@@ -433,7 +391,7 @@ export function BookingPage() {
                             {item.description && <p className="text-sm mt-1">{item.description}</p>}
                             <RunStatusLine status={status} />
                           </div>
-                          {cancelledClass ? guestSeat : canBook && going ? (
+                          {cancelledClass ? null : canBook && going ? (
                             <div className="space-y-3">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="inline-flex items-center gap-1 text-sm font-medium">
@@ -451,10 +409,12 @@ export function BookingPage() {
                                   Cancel RSVP
                                 </Button>
                               </div>
-                              {addedAsGuest(rsvps, item.eventId, item.date) && (
-                                <p className="text-sm text-muted-foreground">Someone added you as their guest.</p>
-                              )}
-                              {guestSeat}
+                              <GuestSeat
+                                guestEmail={guestEmail}
+                                disabled={busyKey === key}
+                                canInvite={!rsvpsClosed && !guestEmail}
+                                onInvite={!rsvpsClosed && !guestEmail ? (email) => inviteGuest(item, email) : undefined}
+                              />
                               <AddToCalendar
                                 title={item.title}
                                 classDate={item.date}
@@ -466,24 +426,6 @@ export function BookingPage() {
                                   description: item.description,
                                 })}
                               />
-                            </div>
-                          ) : canBook && guestEmail ? (
-                            <div className="space-y-3">
-                              {guestSeat}
-                              {rsvpsClosed ? (
-                                <p className="text-sm text-muted-foreground">RSVPs closed</p>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="w-full sm:w-auto"
-                                  disabled={busyKey === key}
-                                  onClick={() => reserve(item)}
-                                >
-                                  <Calendar className="h-4 w-4" />
-                                  RSVP
-                                </Button>
-                              )}
                             </div>
                           ) : rsvpsClosed && (canBook || !user) ? (
                             <p className="text-sm text-muted-foreground">RSVPs closed</p>

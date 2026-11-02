@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS class_rsvps (
   location TEXT NOT NULL,
   user_id TEXT,
   calendar_token TEXT,
+  added_by TEXT,
+  guest_token TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(profile_user_id, event_id, class_date, email)
 );
@@ -103,6 +105,10 @@ CREATE INDEX IF NOT EXISTS idx_sequences_share_id ON sequences(share_id);
 CREATE INDEX IF NOT EXISTS idx_magic_tokens_token ON magic_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_class_rsvps_profile_email ON class_rsvps(profile_user_id, email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_class_rsvps_calendar_token ON class_rsvps(calendar_token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_class_rsvps_guest_token ON class_rsvps(guest_token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_class_rsvps_one_guest
+  ON class_rsvps(profile_user_id, event_id, class_date, added_by)
+  WHERE added_by IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS class_reminder_sends (
   id TEXT PRIMARY KEY,

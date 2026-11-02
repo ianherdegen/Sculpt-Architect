@@ -26,6 +26,7 @@ export interface BookableClass {
   ownClass: boolean
   going: boolean
   cancelled: boolean
+  guestEmail?: string | null
 }
 
 interface ApiBookableClass {
@@ -39,6 +40,7 @@ interface ApiBookableClass {
   own_class?: boolean
   going?: boolean
   cancelled?: boolean
+  guest_email?: string | null
 }
 
 function toClass(row: ApiBookableClass): BookableClass {
@@ -53,6 +55,7 @@ function toClass(row: ApiBookableClass): BookableClass {
     ownClass: row.own_class === true,
     going: row.going === true,
     cancelled: row.cancelled === true,
+    guestEmail: row.guest_email || null,
   }
 }
 

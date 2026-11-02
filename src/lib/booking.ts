@@ -25,6 +25,20 @@ export interface ClassRsvp {
   instructorName?: string
   instructorShareId?: string
   cancelled?: boolean
+  guestEmail?: string | null
+  attending?: boolean
+  addedAsGuest?: boolean
+}
+
+export interface GuestInvite {
+  status: 'open' | 'started'
+  title: string
+  classDate: string
+  startTime: string
+  endTime: string
+  location: string
+  instructorName: string
+  email: string
 }
 
 export interface ClassRunStatus {
@@ -50,6 +64,9 @@ interface ApiRsvp {
   instructor_name?: string
   instructor_share_id?: string
   cancelled?: boolean
+  guest_email?: string | null
+  attending?: boolean
+  added_as_guest?: boolean
 }
 
 interface ApiOccurrence {
@@ -134,6 +151,9 @@ function toRsvp(row: ApiRsvp): ClassRsvp {
     instructorName: row.instructor_name || '',
     instructorShareId: row.instructor_share_id || '',
     cancelled: row.cancelled === true,
+    guestEmail: row.guest_email || null,
+    attending: row.attending !== false,
+    addedAsGuest: row.added_as_guest === true,
   }
 }
 
@@ -199,5 +219,48 @@ export const bookingService = {
       { eventId, classDate },
       true
     )
+  },
+
+  async addGuest(shareId: string, eventId: string, classDate: string, email: string): Promise<{ guestEmail: string; emailed: boolean }> {
+    return api.post<{ guestEmail: string; emailed: boolean }>(
+      `/book/${encodeURIComponent(shareId)}/guests`,
+      { eventId, classDate, email },
+      true
+    )
+  },
+
+  async removeGuest(shareId: string, eventId: string, classDate: string): Promise<void> {
+    await api.post(
+      `/book/${encodeURIComponent(shareId)}/guests/remove`,
+      { eventId, classDate },
+      true
+    )
+  },
+
+  async guestInvite(token: string): Promise<GuestInvite> {
+    const result = await api.get<{
+      status: 'open' | 'started'
+      title: string
+      class_date: string
+      start_time: string
+      end_time: string
+      location: string
+      instructor_name?: string
+      email: string
+    }>(`/book/guest/${encodeURIComponent(token)}`)
+    return {
+      status: result.status,
+      title: result.title,
+      classDate: result.class_date,
+      startTime: result.start_time,
+      endTime: result.end_time,
+      location: result.location,
+      instructorName: result.instructor_name || '',
+      email: result.email,
+    }
+  },
+
+  async removeGuestByToken(token: string): Promise<void> {
+    await api.post(`/book/guest/${encodeURIComponent(token)}/remove`)
   },
 }

@@ -4,6 +4,7 @@ import { bookingService, formatClassDate, formatClassTime, occurrenceKey } from 
 import { newRsvpsClosed } from '../lib/classCalendar'
 import { locationService, type BookableClass, type Studio } from '../lib/locations'
 import { Button } from './ui/button'
+import { GuestSeat } from './GuestSeat'
 import { ApiError } from '../lib/apiClient'
 
 const selectClass = 'border-input bg-input-background flex h-9 w-full rounded-md border px-3 text-sm'
@@ -93,6 +94,17 @@ export function LocationClasses({
     }
   }
 
+  const addGuest = async (item: BookableClass, email: string) => {
+    const result = await bookingService.addGuest(item.instructorShareId, item.eventId, item.classDate, email)
+    onChanged()
+    return result
+  }
+
+  const removeGuest = async (item: BookableClass) => {
+    await bookingService.removeGuest(item.instructorShareId, item.eventId, item.classDate)
+    onChanged()
+  }
+
   const cancel = async (item: BookableClass) => {
     const key = occurrenceKey(item.eventId, item.classDate)
     setBusyKey(key)
@@ -159,35 +171,76 @@ export function LocationClasses({
                   )}
                 </div>
                 {item.cancelled ? (
-                  item.going ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:w-auto"
-                      disabled={busyKey === key}
-                      onClick={() => cancel(item)}
-                    >
-                      Cancel RSVP
-                    </Button>
+                  item.going || item.guestEmail ? (
+                    <div className="space-y-2">
+                      {item.going && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto"
+                          disabled={busyKey === key}
+                          onClick={() => cancel(item)}
+                        >
+                          Cancel RSVP
+                        </Button>
+                      )}
+                      {item.guestEmail && (
+                        <GuestSeat
+                          guestEmail={item.guestEmail}
+                          disabled={busyKey === key}
+                          onRemove={() => removeGuest(item)}
+                        />
+                      )}
+                    </div>
                   ) : item.ownClass ? (
                     <p className="text-sm text-muted-foreground">Your class</p>
                   ) : null
                 ) : item.ownClass ? (
                   <p className="text-sm text-muted-foreground">Your class</p>
                 ) : item.going ? (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-sm font-medium">Going</span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:w-auto"
+                  <div className="space-y-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-sm font-medium">Going</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        disabled={busyKey === key}
+                        onClick={() => cancel(item)}
+                      >
+                        Cancel RSVP
+                      </Button>
+                    </div>
+                    <GuestSeat
+                      guestEmail={item.guestEmail}
                       disabled={busyKey === key}
-                      onClick={() => cancel(item)}
-                    >
-                      Cancel RSVP
-                    </Button>
+                      canAdd={!item.guestEmail && !newRsvpsClosed(item.classDate, item.startTime, now)}
+                      onAdd={(email) => addGuest(item, email)}
+                      onRemove={item.guestEmail ? () => removeGuest(item) : undefined}
+                    />
+                  </div>
+                ) : item.guestEmail ? (
+                  <div className="space-y-3">
+                    <GuestSeat
+                      guestEmail={item.guestEmail}
+                      disabled={busyKey === key}
+                      onRemove={() => removeGuest(item)}
+                    />
+                    {newRsvpsClosed(item.classDate, item.startTime, now) ? (
+                      <p className="text-sm text-muted-foreground">RSVPs closed</p>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        disabled={busyKey === key}
+                        onClick={() => reserve(item)}
+                      >
+                        RSVP
+                      </Button>
+                    )}
                   </div>
                 ) : newRsvpsClosed(item.classDate, item.startTime, now) ? (
                   <p className="text-sm text-muted-foreground">RSVPs closed</p>

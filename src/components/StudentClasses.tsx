@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { bookingService, formatClassDate, formatClassTime, localToday, type ClassRsvp } from '../lib/booking'
-import { calendarDescription } from '../lib/classCalendar'
+import { calendarDescription, newRsvpsClosed } from '../lib/classCalendar'
 import { AddToCalendar } from './AddToCalendar'
 import { LocationClasses } from './LocationClasses'
 import { Button } from './ui/button'
+import { GuestSeat } from './GuestSeat'
 import { ApiError } from '../lib/apiClient'
 
 export function StudentClasses() {
@@ -51,7 +52,7 @@ export function StudentClasses() {
       <div>
         <h3 className="font-medium">Your classes</h3>
         <p className="text-sm text-muted-foreground">
-          Classes you reserved while signed in as a student.
+          Classes you’re booked for, including ones someone added you to.
         </p>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -67,6 +68,17 @@ export function StudentClasses() {
               onCancel={async (item) => {
                 if (!item.instructorShareId) return
                 await bookingService.cancel(item.instructorShareId, item.eventId, item.classDate)
+                await refresh()
+              }}
+              onAddGuest={async (item, email) => {
+                if (!item.instructorShareId) return
+                const result = await bookingService.addGuest(item.instructorShareId, item.eventId, item.classDate, email)
+                await refresh()
+                return result
+              }}
+              onRemoveGuest={async (item) => {
+                if (!item.instructorShareId) return
+                await bookingService.removeGuest(item.instructorShareId, item.eventId, item.classDate)
                 await refresh()
               }}
             />
@@ -88,9 +100,13 @@ export function StudentClasses() {
 function ClassRow({
   rsvp,
   onCancel,
+  onAddGuest,
+  onRemoveGuest,
 }: {
   rsvp: ClassRsvp
   onCancel?: (rsvp: ClassRsvp) => Promise<void>
+  onAddGuest?: (rsvp: ClassRsvp, email: string) => Promise<{ emailed?: boolean } | void>
+  onRemoveGuest?: (rsvp: ClassRsvp) => Promise<void>
 }) {
   const profileLink = rsvp.instructorShareId ? `/book/${rsvp.instructorShareId}` : null
   const upcoming = rsvp.classDate >= localToday()
@@ -120,6 +136,12 @@ function ClassRow({
           {formatClassDate(rsvp.classDate)} · {formatClassTime(rsvp.startTime)} – {formatClassTime(rsvp.endTime)}
         </p>
         <p className="text-sm text-muted-foreground">{rsvp.location}</p>
+        {upcoming && rsvp.attending === false && (
+          <p className="text-sm text-muted-foreground">You’re not booked. Your guest still is.</p>
+        )}
+        {rsvp.addedAsGuest && (
+          <p className="text-sm text-muted-foreground">Someone added you as their guest.</p>
+        )}
         {rsvp.instructorName && (
           profileLink ? (
             <Link to={profileLink} className="text-sm text-primary hover:underline">
@@ -132,7 +154,7 @@ function ClassRow({
       </div>
       {upcoming && (
         <div className="space-y-2">
-          {!rsvp.cancelled && (
+          {rsvp.attending !== false && !rsvp.cancelled && (
             <AddToCalendar
               title={rsvp.title}
               classDate={rsvp.classDate}
@@ -142,10 +164,18 @@ function ClassRow({
               description={calendarDescription({ instructorName: rsvp.instructorName })}
             />
           )}
-          {onCancel && rsvp.instructorShareId && (
+          {onCancel && rsvp.attending !== false && rsvp.instructorShareId && (
             <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={busy} onClick={cancel}>
               Cancel RSVP
             </Button>
+          )}
+          {rsvp.instructorShareId && (onAddGuest || onRemoveGuest) && (
+            <GuestSeat
+              guestEmail={rsvp.guestEmail}
+              canAdd={!rsvp.cancelled && !rsvp.guestEmail && !!onAddGuest && !newRsvpsClosed(rsvp.classDate, rsvp.startTime)}
+              onAdd={onAddGuest ? (email) => onAddGuest(rsvp, email) : undefined}
+              onRemove={rsvp.guestEmail && onRemoveGuest ? () => onRemoveGuest(rsvp) : undefined}
+            />
           )}
           {rowError && <p className="text-sm text-destructive">{rowError}</p>}
         </div>

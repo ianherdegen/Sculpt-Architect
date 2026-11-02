@@ -205,6 +205,49 @@ async function deliverEmail({ to, subject, html, ics, filename }) {
   return { ok: true, logged: false }
 }
 
+function guestAddedHtml({ bookerName, title, when, location, instructorName, removeUrl }) {
+  const withLine = instructorName
+    ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
+    : ''
+  return `
+    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">You're booked</h2>
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:0 0 16px;">${escapeHtml(bookerName)} added you to this class.</p>
+    <p style="color:#030213;font-size:18px;font-weight:600;margin:0 0 8px;">${escapeHtml(title)}</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
+    ${withLine}
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">You'll get reminders at this email. Create an account with this address to see the class in your bookings.</p>
+    <p style="margin:24px 0 8px;"><a href="${escapeHtml(removeUrl)}" style="display:inline-block;padding:12px 18px;background:#030213;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">Take me off this class</a></p>
+    <p style="color:#717182;font-size:13px;line-height:1.6;">That link works until the class starts. If the button doesn't work, copy and paste this link:<br/><a href="${escapeHtml(removeUrl)}" style="color:#030213;">${escapeHtml(removeUrl)}</a></p>
+  `
+}
+
+function guestRemovedHtml({ bookerName, title, when, location }) {
+  return `
+    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">You're off this class</h2>
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:0 0 16px;">${escapeHtml(bookerName)} removed you from ${escapeHtml(title)}.</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">You won't get any more emails for it.</p>
+  `
+}
+
+export async function sendGuestAddedEmail({ to, bookerName, title, when, location, instructorName, removeUrl }) {
+  return deliverEmail({
+    to,
+    subject: `${bookerName} added you to ${title}`,
+    html: guestAddedHtml({ bookerName, title, when, location, instructorName, removeUrl }),
+  })
+}
+
+export async function sendGuestRemovedEmail({ to, bookerName, title, when, location }) {
+  return deliverEmail({
+    to,
+    subject: `You're no longer on ${title}`,
+    html: guestRemovedHtml({ bookerName, title, when, location }),
+  })
+}
+
 async function claimSend(rsvpId, kind) {
   const db = getDb()
   try {

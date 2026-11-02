@@ -471,6 +471,15 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
     args: [today, endDate, account.id, account.email],
   })
   const going = new Set(rsvps.rows.map((row) => `${row.profile_user_id}:${row.event_id}:${row.class_date}`))
+  const added = await db.execute({
+    sql: `SELECT profile_user_id, event_id, class_date, email
+          FROM class_rsvps
+          WHERE class_date >= ? AND class_date <= ? AND added_by = ?`,
+    args: [today, endDate, account.id],
+  })
+  const guestEmails = new Map(
+    added.rows.map((row) => [`${row.profile_user_id}:${row.event_id}:${row.class_date}`, String(row.email)]),
+  )
 
   const classes = []
   for (const { profile, events } of hosts) {
@@ -494,6 +503,7 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
           own_class: profile.user_id === account.id,
           going: going.has(key),
           cancelled: cancelled.has(key),
+          guest_email: guestEmails.get(key) || null,
         })
       }
     }

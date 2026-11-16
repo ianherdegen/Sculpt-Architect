@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2, Clock, List, Music, Plus } from 'lucide-react';
+import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2, Clock, List, Music, Plus, Instagram, Linkedin } from 'lucide-react';
 import { ScheduleEditor } from './ScheduleEditor';
 import { userProfileService } from '../lib/userProfileService';
 import { sequenceService } from '../lib/supabaseService';
@@ -19,6 +19,7 @@ import { useViewMode } from '../lib/viewMode';
 import { StudentClasses } from './StudentClasses';
 import { ClassReminderSettings } from './ClassReminderSettings';
 import { calculateSequenceDuration, formatDuration } from '../lib/timeUtils';
+import { instagramProfileUrl, linkedInLabel, parseInstagram, parseLinkedIn } from '../lib/socialLinks';
 
 export interface ClassEvent {
   id: string;
@@ -42,6 +43,8 @@ export interface UserProfile {
   events: ClassEvent[];
   shareId?: string; // Unique ID for shareable profile links
   venmoUsername?: string; // Venmo username for payment links
+  instagramUsername?: string;
+  linkedinUrl?: string;
   profilePhotoUrl?: string; // Profile photo URL
   spotifyPlaylistUrls?: string[]; // Array of Spotify playlist URLs
 }
@@ -67,6 +70,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
   const [linkCopied, setLinkCopied] = useState(false);
   const [bookingLinkCopied, setBookingLinkCopied] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
+  const [socialErrors, setSocialErrors] = useState<{ instagram?: string | null; linkedin?: string | null }>({});
   const [loading, setLoading] = useState(!initialProfile && !isViewerMode);
   const [profile, setProfile] = useState<UserProfile>(
     initialProfile || {
@@ -76,6 +80,8 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       events: [],
       shareId: userId || '',
       venmoUsername: '',
+      instagramUsername: '',
+      linkedinUrl: '',
       profilePhotoUrl: '',
       spotifyPlaylistUrls: [],
     }
@@ -100,6 +106,8 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       events: dbProfile.events || [],
       shareId: dbProfile.share_id || undefined,
       venmoUsername: dbProfile.venmo_username || undefined,
+      instagramUsername: dbProfile.instagram_username || undefined,
+      linkedinUrl: dbProfile.linkedin_url || undefined,
       profilePhotoUrl: dbProfile.profile_photo_url || undefined,
       spotifyPlaylistUrls: dbProfile.spotify_playlist_urls || [],
     };
@@ -242,26 +250,42 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
       setSpotifyUrlErrors(urlErrors);
       return;
     }
+
+    const instagram = parseInstagram(editedProfile.instagramUsername || '');
+    const linkedin = parseLinkedIn(editedProfile.linkedinUrl || '');
+    if (instagram.error || linkedin.error) {
+      setSocialErrors({ instagram: instagram.error, linkedin: linkedin.error });
+      return;
+    }
     
     try {
     setSlugError(null);
+    setSocialErrors({});
     setSpotifyUrlErrors({});
       setLoading(true);
       
       // Save to Supabase
       // If shareId is empty, use userId as default (so profile is always shareable)
       const shareIdToSave = editedProfile.shareId?.trim() || userId;
+      const profileToSave: UserProfile = {
+        ...editedProfile,
+        instagramUsername: instagram.value || undefined,
+        linkedinUrl: linkedin.value || undefined,
+      };
       
       await userProfileService.update(userId, {
-        name: editedProfile.name,
-        bio: editedProfile.bio,
-        events: editedProfile.events,
+        name: profileToSave.name,
+        bio: profileToSave.bio,
+        events: profileToSave.events,
         share_id: shareIdToSave,
-        venmo_username: editedProfile.venmoUsername?.trim() || null,
-        spotify_playlist_urls: editedProfile.spotifyPlaylistUrls?.filter(url => url.trim()) || [],
+        venmo_username: profileToSave.venmoUsername?.trim() || null,
+        instagram_username: profileToSave.instagramUsername || null,
+        linkedin_url: profileToSave.linkedinUrl || null,
+        spotify_playlist_urls: profileToSave.spotifyPlaylistUrls?.filter(url => url.trim()) || [],
       });
       
-    setProfile(editedProfile);
+    setProfile(profileToSave);
+    setEditedProfile(profileToSave);
     setIsEditing(false);
     } catch (error: any) {
       console.error('Error saving profile:', error);
@@ -274,6 +298,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
   const handleCancel = () => {
     setEditedProfile(profile);
     setSlugError(null);
+    setSocialErrors({});
     setSpotifyUrlErrors({});
     setNewSpotifyUrl('');
     setIsEditing(false);
@@ -858,6 +883,44 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                   Your Venmo username (without @) will be displayed on your public profile with a payment link.
                 </p>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="instagramUsername">Instagram</Label>
+                <Input
+                  id="instagramUsername"
+                  value={editedProfile.instagramUsername || ''}
+                  onChange={(e) => {
+                    setEditedProfile({ ...editedProfile, instagramUsername: e.target.value });
+                    setSocialErrors((current) => ({ ...current, instagram: null }));
+                  }}
+                  placeholder="@yourhandle or instagram.com/yourhandle"
+                />
+                {socialErrors.instagram ? (
+                  <p className="text-sm text-destructive">{socialErrors.instagram}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Shown on your public profile as a link to your Instagram account.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="linkedinUrl">LinkedIn</Label>
+                <Input
+                  id="linkedinUrl"
+                  value={editedProfile.linkedinUrl || ''}
+                  onChange={(e) => {
+                    setEditedProfile({ ...editedProfile, linkedinUrl: e.target.value });
+                    setSocialErrors((current) => ({ ...current, linkedin: null }));
+                  }}
+                  placeholder="linkedin.com/in/your-name"
+                />
+                {socialErrors.linkedin ? (
+                  <p className="text-sm text-destructive">{socialErrors.linkedin}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Shown on your public profile as a link to your LinkedIn account.
+                  </p>
+                )}
+              </div>
             </>
           ) : (
             <>
@@ -921,7 +984,35 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                   </div>
                 </div>
               )}
-              {!profile.name && !profile.bio && (
+              {(profile.instagramUsername || profile.linkedinUrl) && (
+                <div className="flex flex-col gap-2 pt-1">
+                  {profile.instagramUsername && (
+                    <a
+                      href={instagramProfileUrl(profile.instagramUsername)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 font-medium hover:underline w-fit"
+                    >
+                      <Instagram className="h-4 w-4" />
+                      @{profile.instagramUsername}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                  {profile.linkedinUrl && (
+                    <a
+                      href={profile.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 font-medium hover:underline w-fit"
+                    >
+                      <Linkedin className="h-4 w-4" />
+                      {linkedInLabel(profile.linkedinUrl)}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              )}
+              {!profile.name && !profile.bio && !profile.instagramUsername && !profile.linkedinUrl && (
                 <p className="text-muted-foreground italic">No profile information yet. Click "Edit Profile" to add your bio.</p>
               )}
               {!isViewerMode && (

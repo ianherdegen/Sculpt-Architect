@@ -37,6 +37,7 @@ import {
   mergeClassRequirements,
 } from './booking.js'
 import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders } from './reminders.js'
+import { parseInstagram, parseLinkedIn } from '../src/lib/socialLinks.js'
 import {
   bindEventLocations,
   createLocation,
@@ -820,6 +821,15 @@ app.get('/api/profiles/user/:userId', async (c) => {
   return c.json(formatUserProfile(result.rows[0]))
 })
 
+function socialProfileField(value, parse) {
+  if (value === undefined) return { value: undefined }
+  if (value === null) return { value: null }
+  if (typeof value !== 'string') return { error: 'Enter a valid social profile link.' }
+  const parsed = parse(value)
+  if (parsed.error) return { error: parsed.error }
+  return { value: parsed.value }
+}
+
 async function prepareClassEvents(userId: string, events: unknown) {
   const db = getDb()
   const previous = parseJson((await db.execute({
@@ -881,6 +891,11 @@ app.patch('/api/profiles/me', requireAuth, async (c) => {
     eventsJson = JSON.stringify(prepared.events)
   }
 
+  const instagram = socialProfileField(body.instagram_username, parseInstagram)
+  if (instagram.error) return c.json({ error: instagram.error }, 400)
+  const linkedin = socialProfileField(body.linkedin_url, parseLinkedIn)
+  if (linkedin.error) return c.json({ error: linkedin.error }, 400)
+
   const fieldMap: Record<string, unknown> = {
     name: body.name,
     bio: body.bio,
@@ -888,6 +903,8 @@ app.patch('/api/profiles/me', requireAuth, async (c) => {
     events: eventsJson,
     share_id: body.share_id,
     venmo_username: body.venmo_username,
+    instagram_username: instagram.value,
+    linkedin_url: linkedin.value,
     profile_photo_url: body.profile_photo_url,
     spotify_playlist_urls: body.spotify_playlist_urls !== undefined ? JSON.stringify(body.spotify_playlist_urls) : undefined,
     is_banned: body.is_banned !== undefined ? boolToInt(!!body.is_banned) : undefined,

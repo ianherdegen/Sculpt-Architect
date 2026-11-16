@@ -58,6 +58,8 @@ export interface UserProfile {
   events: ClassEvent[]
   share_id?: string | null
   venmo_username?: string | null
+  instagram_username?: string | null
+  linkedin_url?: string | null
   profile_photo_url?: string | null
   spotify_playlist_urls?: string[] | null
   is_banned?: boolean

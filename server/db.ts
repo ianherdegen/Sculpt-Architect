@@ -55,6 +55,8 @@ export async function ensureProfileColumns() {
   if (columnsReady) return
   const db = getDb()
   await addColumn(db, 'user_profiles', 'view_mode', `TEXT NOT NULL DEFAULT 'student'`)
+  await addColumn(db, 'user_profiles', 'instagram_username', 'TEXT')
+  await addColumn(db, 'user_profiles', 'linkedin_url', 'TEXT')
   columnsReady = true
 }
 
@@ -99,6 +101,8 @@ export function formatUserProfile(row: Record<string, unknown>) {
     share_id: (row.share_id as string) || null,
     permissions: parseJson<Record<string, boolean>>(row.permissions, {}),
     venmo_username: (row.venmo_username as string) || null,
+    instagram_username: (row.instagram_username as string) || null,
+    linkedin_url: (row.linkedin_url as string) || null,
     profile_photo_url: (row.profile_photo_url as string) || null,
     spotify_playlist_urls: parseJson<string[]>(row.spotify_playlist_urls, []),
     is_banned: rowToBool(row.is_banned),

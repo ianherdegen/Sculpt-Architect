@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   share_id TEXT UNIQUE,
   permissions TEXT NOT NULL DEFAULT '{}',
   venmo_username TEXT,
+  instagram_username TEXT,
+  linkedin_url TEXT,
   profile_photo_url TEXT,
   spotify_playlist_urls TEXT NOT NULL DEFAULT '[]',
   is_banned INTEGER NOT NULL DEFAULT 0,

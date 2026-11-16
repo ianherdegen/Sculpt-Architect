@@ -24,6 +24,8 @@ export function PublicProfile({ shareId }: PublicProfileProps) {
       events: dbProfile.events || [],
       shareId: dbProfile.share_id || undefined,
       venmoUsername: dbProfile.venmo_username || undefined,
+      instagramUsername: dbProfile.instagram_username || undefined,
+      linkedinUrl: dbProfile.linkedin_url || undefined,
       profilePhotoUrl: dbProfile.profile_photo_url || undefined,
       spotifyPlaylistUrls: dbProfile.spotify_playlist_urls || [],
     };

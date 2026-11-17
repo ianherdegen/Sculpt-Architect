@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from './ui/button';
-import { Calendar, Check, Home } from 'lucide-react';
+import { Calendar, Check, Home, Info } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { AddToCalendar } from './AddToCalendar';
 import { calendarDescription, newRsvpsClosed } from '../lib/classCalendar';
 import { userProfileService } from '../lib/userProfileService';
@@ -10,6 +11,8 @@ import {
   formatClassDate,
   formatClassTime,
   formatRunStatus,
+  formatStudentRunDetail,
+  formatStudentRunStatus,
   localToday,
   occurrenceKey,
   upcomingWeek,
@@ -29,12 +32,26 @@ function emailsForClass(rsvps: ClassRsvp[], eventId: string, date: string) {
     .map((rsvp) => rsvp.email);
 }
 
-function RunStatusLine({ status }: { status?: ClassRunStatus }) {
+function RunStatusLine({ status, student = false }: { status?: ClassRunStatus; student?: boolean }) {
   if (!status) return null;
+  const cancelled = status.status === 'cancelled';
+  const label = student ? formatStudentRunStatus(status) : formatRunStatus(status);
   return (
-    <p className={`text-sm ${status.status === 'cancelled' ? 'text-destructive' : 'text-muted-foreground'}`}>
-      {formatRunStatus(status)}
-    </p>
+    <div className={`run-status${cancelled ? ' run-status--cancelled' : ''}`}>
+      <p>{label}</p>
+      {student && status.status === 'pending' && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="run-status-info" aria-label="When this class is confirmed">
+              <Info />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="run-status-detail" side="top" align="end" sideOffset={6} collisionPadding={16}>
+            {formatStudentRunDetail(status)}
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
   );
 }
 
@@ -98,7 +115,7 @@ function ReceivedRsvps({
                     ) : (
                       <ul className="text-sm space-y-2">
                         {emails.map((address) => (
-                          <li key={address}>{address}</li>
+                          <li key={address} className="booking-email">{address}</li>
                         ))}
                       </ul>
                     )}
@@ -128,7 +145,7 @@ function ReceivedRsvps({
                 </div>
                 <ul className="text-sm space-y-2">
                   {group.map((rsvp) => (
-                    <li key={rsvp.id}>{rsvp.email}</li>
+                    <li key={rsvp.id} className="booking-email">{rsvp.email}</li>
                   ))}
                 </ul>
               </div>
@@ -300,7 +317,7 @@ export function BookingPage() {
       <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container max-w-2xl mx-auto px-4 sm:px-6">
           <div className="booking-header">
-            <div className="flex items-center gap-1">
+            <div className="flex min-w-0 items-center gap-1">
               <Link to="/">
                 <Button variant="ghost" size="sm">
                   <Home className="h-4 w-4" />
@@ -312,7 +329,7 @@ export function BookingPage() {
                 </Link>
               )}
             </div>
-            <h1 className="text-xl font-light tracking-widest uppercase">SCULPT ARCHITECT</h1>
+            <h1 className="font-light uppercase">SCULPT ARCHITECT</h1>
             <div className="booking-header-actions" />
           </div>
         </div>
@@ -364,15 +381,15 @@ export function BookingPage() {
                       const cancelledClass = status?.status === 'cancelled';
                       const loginHref = `/?return=${encodeURIComponent(`/book/${shareId}`)}`;
                       return (
-                        <div key={key} className="p-4 border rounded-lg bg-card space-y-3">
-                          <div>
-                            <p className="font-medium">{item.title}</p>
+                        <div key={key} className="p-4 border rounded-lg bg-card space-y-3 min-w-0">
+                          <div className="min-w-0">
+                            <p className="font-medium break-words">{item.title}</p>
                             <p className="text-sm text-muted-foreground">
                               {formatClassTime(item.startTime)} – {formatClassTime(item.endTime)}
                             </p>
-                            <p className="text-sm text-muted-foreground">{item.location}</p>
+                            <p className="text-sm text-muted-foreground break-words">{item.location}</p>
                             {item.description && <p className="text-sm mt-1">{item.description}</p>}
-                            <RunStatusLine status={status} />
+                            <RunStatusLine status={status} student />
                           </div>
                           {cancelledClass ? null : canBook && going ? (
                             <div className="space-y-2">
@@ -418,8 +435,8 @@ export function BookingPage() {
                               RSVP
                             </Button>
                           ) : !user ? (
-                            <Link to={loginHref}>
-                              <Button type="button" size="sm">Log in to book</Button>
+                            <Link to={loginHref} className="block sm:inline-block">
+                              <Button type="button" size="sm" className="w-full sm:w-auto">Log in to book</Button>
                             </Link>
                           ) : null}
                         </div>

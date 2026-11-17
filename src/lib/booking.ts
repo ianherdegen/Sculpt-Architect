@@ -137,17 +137,38 @@ function toRsvp(row: ApiRsvp): ClassRsvp {
   }
 }
 
-export function formatRunStatus(status: ClassRunStatus): string {
-  if (status.status === 'cancelled') return 'Cancelled — not enough RSVPs'
-  if (status.status === 'confirmed') return `On · ${status.rsvpCount} of ${status.minRsvps} RSVPs`
-  const when = new Date(status.deadline).toLocaleString('en-US', {
+function formatDecisionTime(deadline: string) {
+  return new Date(deadline).toLocaleString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   })
-  return `${status.rsvpCount} of ${status.minRsvps} RSVPs needed by ${when}`
+}
+
+export function rsvpsStillNeeded(status: ClassRunStatus) {
+  return Math.max(0, status.minRsvps - status.rsvpCount)
+}
+
+export function formatRunStatus(status: ClassRunStatus): string {
+  if (status.status === 'cancelled') return 'Cancelled — not enough RSVPs'
+  if (status.status === 'confirmed') return `On · ${status.rsvpCount} of ${status.minRsvps} RSVPs`
+  return `${status.rsvpCount} of ${status.minRsvps} RSVPs needed by ${formatDecisionTime(status.deadline)}`
+}
+
+export function formatStudentRunStatus(status: ClassRunStatus): string {
+  if (status.status === 'cancelled') return 'Cancelled — not enough RSVPs'
+  if (status.status === 'confirmed') return 'Confirmed'
+  const remaining = rsvpsStillNeeded(status)
+  if (remaining === 0) return 'Enough RSVPs to confirm this class'
+  const label = remaining === 1 ? 'RSVP' : 'RSVPs'
+  return `${remaining} more ${label} to ensure class is confirmed`
+}
+
+export function formatStudentRunDetail(status: ClassRunStatus): string {
+  const people = status.minRsvps === 1 ? '1 person has' : `${status.minRsvps} people have`
+  return `If fewer than ${people} RSVP'd by ${formatDecisionTime(status.deadline)}, the class is cancelled.`
 }
 
 export const bookingService = {

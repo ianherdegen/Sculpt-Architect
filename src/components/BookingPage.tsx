@@ -391,7 +391,25 @@ export function BookingPage() {
                             {item.description && <p className="text-sm mt-1">{item.description}</p>}
                             <RunStatusLine status={status} student />
                           </div>
-                          {cancelledClass ? null : canBook && going ? (
+                          {cancelledClass ? (
+                            status?.reason === 'instructor' && going ? (
+                              <div className="space-y-2">
+                                <p className="text-sm">You're still signed up.</p>
+                                {canBook && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full sm:w-auto"
+                                    disabled={busyKey === key}
+                                    onClick={() => cancel(item.eventId, item.date)}
+                                  >
+                                    Cancel RSVP
+                                  </Button>
+                                )}
+                              </div>
+                            ) : null
+                          ) : canBook && going ? (
                             <div className="space-y-2">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="inline-flex items-center gap-1 text-sm font-medium">

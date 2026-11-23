@@ -25,6 +25,22 @@ export interface ClassRsvp {
   instructorName?: string
   instructorShareId?: string
   cancelled?: boolean
+  cancelReason?: 'instructor' | 'rsvps' | null
+  cancelNote?: string
+}
+
+export interface ClassDateSkip {
+  id: string
+  eventId: string
+  classDate: string
+  note: string
+  notifiedAt: string | null
+}
+
+export interface SkipNotice {
+  emailed: number
+  failed: number
+  logged: number
 }
 
 export interface ClassRunStatus {
@@ -35,6 +51,8 @@ export interface ClassRunStatus {
   rsvpCount: number
   deadline: string
   status: 'pending' | 'confirmed' | 'cancelled'
+  reason?: 'instructor' | 'rsvps' | null
+  note?: string
 }
 
 interface ApiRsvp {
@@ -50,6 +68,8 @@ interface ApiRsvp {
   instructor_name?: string
   instructor_share_id?: string
   cancelled?: boolean
+  cancel_reason?: 'instructor' | 'rsvps' | null
+  cancel_note?: string
 }
 
 interface ApiOccurrence {
@@ -60,6 +80,8 @@ interface ApiOccurrence {
   rsvp_count: number
   deadline: string
   status: 'pending' | 'confirmed' | 'cancelled'
+  reason?: 'instructor' | 'rsvps' | null
+  note?: string
 }
 
 export function occurrenceKey(eventId: string, date: string) {
@@ -134,7 +156,17 @@ function toRsvp(row: ApiRsvp): ClassRsvp {
     instructorName: row.instructor_name || '',
     instructorShareId: row.instructor_share_id || '',
     cancelled: row.cancelled === true,
+    cancelReason: row.cancel_reason === 'instructor' || row.cancel_reason === 'rsvps' ? row.cancel_reason : null,
+    cancelNote: row.cancel_note || '',
   }
+}
+
+export function cancellationLabel(reason?: string | null, note?: string | null): string {
+  if (reason === 'instructor') {
+    const trimmed = note?.trim()
+    return trimmed ? `Cancelled — ${trimmed}` : 'Cancelled'
+  }
+  return 'Cancelled — not enough RSVPs'
 }
 
 function formatDecisionTime(deadline: string) {
@@ -152,13 +184,13 @@ export function rsvpsStillNeeded(status: ClassRunStatus) {
 }
 
 export function formatRunStatus(status: ClassRunStatus): string {
-  if (status.status === 'cancelled') return 'Cancelled — not enough RSVPs'
+  if (status.status === 'cancelled') return cancellationLabel(status.reason, status.note)
   if (status.status === 'confirmed') return `On · ${status.rsvpCount} of ${status.minRsvps} RSVPs`
   return `${status.rsvpCount} of ${status.minRsvps} RSVPs needed by ${formatDecisionTime(status.deadline)}`
 }
 
 export function formatStudentRunStatus(status: ClassRunStatus): string {
-  if (status.status === 'cancelled') return 'Cancelled — not enough RSVPs'
+  if (status.status === 'cancelled') return cancellationLabel(status.reason, status.note)
   if (status.status === 'confirmed') return 'Confirmed'
   const remaining = rsvpsStillNeeded(status)
   if (remaining === 0) return 'Enough RSVPs to confirm this class'
@@ -184,7 +216,56 @@ export const bookingService = {
       rsvpCount: row.rsvp_count,
       deadline: row.deadline,
       status: row.status,
+      reason: row.reason === 'instructor' || row.reason === 'rsvps' ? row.reason : null,
+      note: row.note || '',
     }))
+  },
+
+  async listSkips(): Promise<ClassDateSkip[]> {
+    const result = await api.get<{ skips: Array<{
+      id: string
+      event_id: string
+      class_date: string
+      note?: string
+      notified_at?: string | null
+    }> }>('/classes/skips', true)
+    return (result.skips || []).map((row) => ({
+      id: row.id,
+      eventId: row.event_id,
+      classDate: row.class_date,
+      note: row.note || '',
+      notifiedAt: row.notified_at || null,
+    }))
+  },
+
+  async skipDate(eventId: string, classDate: string, note: string): Promise<{ skip: ClassDateSkip; notice: SkipNotice }> {
+    const result = await api.post<{
+      skip: { id: string; event_id: string; class_date: string; note?: string; notified_at?: string | null }
+      notice?: SkipNotice
+    }>(
+      '/classes/skips',
+      { eventId, classDate, note },
+      true,
+    )
+    return {
+      skip: {
+        id: result.skip.id,
+        eventId: result.skip.event_id,
+        classDate: result.skip.class_date,
+        note: result.skip.note || '',
+        notifiedAt: result.skip.notified_at || null,
+      },
+      notice: result.notice || { emailed: 0, failed: 0, logged: 0 },
+    }
+  },
+
+  async restoreDate(eventId: string, classDate: string): Promise<SkipNotice> {
+    const result = await api.post<{ notice?: SkipNotice }>(
+      '/classes/skips/restore',
+      { eventId, classDate },
+      true,
+    )
+    return result.notice || { emailed: 0, failed: 0, logged: 0 }
   },
 
   async listReceived(): Promise<ClassRsvp[]> {

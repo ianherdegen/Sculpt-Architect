@@ -124,6 +124,38 @@ function cancellationHtml({ title, when, location, instructorName }) {
   `
 }
 
+function skipCancelHtml({ title, when, location, instructorName, note }) {
+  const withLine = instructorName
+    ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
+    : ''
+  const noteLine = note
+    ? `<p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">${escapeHtml(note)}</p>`
+    : ''
+  return `
+    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">This class was cancelled</h2>
+    <p style="color:#030213;font-size:18px;font-weight:600;margin:0 0 8px;">${escapeHtml(title)}</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
+    ${withLine}
+    ${noteLine}
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">Your RSVP is still saved. If this date is put back on, you stay signed up.</p>
+  `
+}
+
+function skipRestoreHtml({ title, when, location, instructorName }) {
+  const withLine = instructorName
+    ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
+    : ''
+  return `
+    <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">This class is back on</h2>
+    <p style="color:#030213;font-size:18px;font-weight:600;margin:0 0 8px;">${escapeHtml(title)}</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
+    <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
+    ${withLine}
+    <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">You are still signed up.</p>
+  `
+}
+
 function thanksHtml({ title, when, location, instructorName, bookUrl }) {
   const withLine = instructorName
     ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
@@ -233,18 +265,23 @@ export async function icsForCalendarToken(token) {
   await ensureReminderSchema()
   const db = getDb()
   const result = await db.execute({
-    sql: `SELECT r.*, instructor.name AS instructor_name, d.status AS decision_status
+    sql: `SELECT r.*, instructor.name AS instructor_name, d.status AS decision_status,
+                 s.id AS skip_id
           FROM class_rsvps r
           LEFT JOIN user_profiles instructor ON instructor.user_id = r.profile_user_id
           LEFT JOIN class_occurrence_decisions d
             ON d.profile_user_id = r.profile_user_id
            AND d.event_id = r.event_id
            AND d.class_date = r.class_date
+          LEFT JOIN class_date_skips s
+            ON s.profile_user_id = r.profile_user_id
+           AND s.event_id = r.event_id
+           AND s.class_date = r.class_date
           WHERE r.calendar_token = ?`,
     args: [token],
   })
   const row = result.rows[0]
-  if (!row || row.decision_status === 'cancelled') return null
+  if (!row || row.decision_status === 'cancelled' || row.skip_id) return null
   const description = calendarDescription({
     instructorName: row.instructor_name || '',
   })
@@ -274,12 +311,16 @@ export async function sendDueClassReminders(options = {}) {
   const db = getDb()
 
   const rsvpResult = await db.execute({
-    sql: `SELECT r.*, d.status AS decision_status
+    sql: `SELECT r.*, d.status AS decision_status, s.id AS skip_id
           FROM class_rsvps r
           LEFT JOIN class_occurrence_decisions d
             ON d.profile_user_id = r.profile_user_id
            AND d.event_id = r.event_id
            AND d.class_date = r.class_date
+          LEFT JOIN class_date_skips s
+            ON s.profile_user_id = r.profile_user_id
+           AND s.event_id = r.event_id
+           AND s.class_date = r.class_date
           WHERE r.class_date >= ? AND r.class_date <= ?`,
     args: [fromYmd, toYmd],
   })
@@ -306,6 +347,10 @@ export async function sendDueClassReminders(options = {}) {
     })
     if (!instants) {
       skipped.push({ id: rsvp.id, reason: 'invalid time' })
+      continue
+    }
+    if (rsvp.skip_id) {
+      skipped.push({ id: rsvp.id, reason: 'date skipped' })
       continue
     }
     let kinds
@@ -467,4 +512,112 @@ export async function sendDueClassReminders(options = {}) {
     skipped,
     errors,
   }
+}
+
+function classWhen(classDate, startTime, endTime) {
+  return `${formatWallDate(classDate)} · ${formatWallTime(startTime)} – ${formatWallTime(endTime)}`
+}
+
+async function instructorName(profileUserId) {
+  const db = getDb()
+  const result = await db.execute({
+    sql: 'SELECT name FROM user_profiles WHERE user_id = ?',
+    args: [profileUserId],
+  })
+  return result.rows[0]?.name || ''
+}
+
+async function sendSkipNotice({ rsvp, subject, html, claimKind }) {
+  if (claimKind) {
+    const claimed = await claimSend(rsvp.id, claimKind)
+    if (!claimed) return 'emailed'
+  }
+  const delivery = await deliverEmail({ to: rsvp.email, subject, html })
+  if (!delivery.ok) {
+    if (claimKind) await releaseSend(rsvp.id, claimKind)
+    console.error('[class-reminders] skip notice failed:', rsvp.email, delivery.error)
+    return 'failed'
+  }
+  if (delivery.logged) {
+    if (claimKind) await releaseSend(rsvp.id, claimKind)
+    console.log(`[class-reminders] (no RESEND_API_KEY) would email ${rsvp.email}: ${subject}`)
+    return 'logged'
+  }
+  console.log(`[class-reminders] sent skip notice to ${rsvp.email}: ${subject}`)
+  return 'emailed'
+}
+
+export async function notifyClassDateSkipped(profileUserId, eventId, classDate) {
+  await ensureReminderSchema()
+  const db = getDb()
+  const skipResult = await db.execute({
+    sql: `SELECT id, note FROM class_date_skips
+          WHERE profile_user_id = ? AND event_id = ? AND class_date = ?`,
+    args: [profileUserId, eventId, classDate],
+  })
+  const skip = skipResult.rows[0]
+  if (!skip) return { emailed: 0, failed: 0, logged: 0 }
+  const rsvpResult = await db.execute({
+    sql: `SELECT * FROM class_rsvps
+          WHERE profile_user_id = ? AND event_id = ? AND class_date = ?`,
+    args: [profileUserId, eventId, classDate],
+  })
+  const name = await instructorName(profileUserId)
+  const note = String(skip.note || '').trim()
+  const notice = { emailed: 0, failed: 0, logged: 0 }
+  for (const rsvp of rsvpResult.rows) {
+    const when = classWhen(rsvp.class_date, rsvp.start_time, rsvp.end_time)
+    const outcome = await sendSkipNotice({
+      rsvp,
+      subject: `Cancelled: ${rsvp.title}`,
+      html: skipCancelHtml({
+        title: rsvp.title,
+        when,
+        location: rsvp.location,
+        instructorName: name,
+        note,
+      }),
+      claimKind: `skip-cancel:${skip.id}`,
+    })
+    notice[outcome] += 1
+  }
+  if (notice.emailed > 0) {
+    await db.execute({
+      sql: `UPDATE class_date_skips
+            SET notified_at = datetime('now')
+            WHERE id = ? AND notified_at IS NULL`,
+      args: [skip.id],
+    })
+  }
+  return notice
+}
+
+export async function notifyClassDateRestored(profileUserId, eventId, classDate, skipId) {
+  await ensureReminderSchema()
+  const db = getDb()
+  const rsvpResult = await db.execute({
+    sql: `SELECT r.*
+          FROM class_rsvps r
+          INNER JOIN class_reminder_sends s ON s.rsvp_id = r.id AND s.kind = ?
+          WHERE r.profile_user_id = ? AND r.event_id = ? AND r.class_date = ?`,
+    args: [`skip-cancel:${skipId}`, profileUserId, eventId, classDate],
+  })
+  const name = await instructorName(profileUserId)
+  const notice = { emailed: 0, failed: 0, logged: 0 }
+  for (const rsvp of rsvpResult.rows) {
+    const when = classWhen(rsvp.class_date, rsvp.start_time, rsvp.end_time)
+    const outcome = await sendSkipNotice({
+      rsvp,
+      subject: `Back on: ${rsvp.title}`,
+      html: skipRestoreHtml({
+        title: rsvp.title,
+        when,
+        location: rsvp.location,
+        instructorName: name,
+      }),
+      claimKind: `skip-restore:${skipId}`,
+    })
+    notice[outcome] += 1
+  }
+  return notice
 }

@@ -26,6 +26,8 @@ export interface BookableClass {
   ownClass: boolean
   going: boolean
   cancelled: boolean
+  cancelReason?: 'instructor' | 'rsvps' | null
+  cancelNote?: string
 }
 
 interface ApiBookableClass {
@@ -39,6 +41,8 @@ interface ApiBookableClass {
   own_class?: boolean
   going?: boolean
   cancelled?: boolean
+  cancel_reason?: 'instructor' | 'rsvps' | null
+  cancel_note?: string
 }
 
 function toClass(row: ApiBookableClass): BookableClass {
@@ -53,6 +57,8 @@ function toClass(row: ApiBookableClass): BookableClass {
     ownClass: row.own_class === true,
     going: row.going === true,
     cancelled: row.cancelled === true,
+    cancelReason: row.cancel_reason === 'instructor' || row.cancel_reason === 'rsvps' ? row.cancel_reason : null,
+    cancelNote: row.cancel_note || '',
   }
 }
 

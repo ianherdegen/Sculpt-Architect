@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { bookingService, formatClassDate, formatClassTime, localToday, type ClassRsvp } from '../lib/booking'
+import { bookingService, cancellationLabel, formatClassDate, formatClassTime, localToday, type ClassRsvp } from '../lib/booking'
 import { calendarDescription } from '../lib/classCalendar'
 import { AddToCalendar } from './AddToCalendar'
 import { LocationClasses } from './LocationClasses'
@@ -114,7 +114,10 @@ function ClassRow({
       <div>
         <p className="font-medium">{rsvp.title}</p>
         {rsvp.cancelled && (
-          <p className="text-sm text-destructive">Cancelled — not enough RSVPs</p>
+          <p className="text-sm text-destructive">{cancellationLabel(rsvp.cancelReason, rsvp.cancelNote)}</p>
+        )}
+        {rsvp.cancelled && rsvp.cancelReason === 'instructor' && upcoming && (
+          <p className="text-sm text-muted-foreground">You're still signed up if this date is put back on.</p>
         )}
         <p className="text-sm text-muted-foreground">
           {formatClassDate(rsvp.classDate)} · {formatClassTime(rsvp.startTime)} – {formatClassTime(rsvp.endTime)}

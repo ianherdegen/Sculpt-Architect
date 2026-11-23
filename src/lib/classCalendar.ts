@@ -96,6 +96,29 @@ export function ymdWeekday(ymd: string): number {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
 }
 
+/** How far ahead an instructor can cancel one date of a class. */
+export const CLASS_SKIP_HORIZON_DAYS = 90
+
+/** Upcoming dates for a class that have not started yet, through the skip horizon. */
+export function upcomingClassDates(
+  event: { isRecurring?: boolean; dayOfWeek?: number; date?: string; startTime: string },
+  now = new Date(),
+): string[] {
+  const today = zonedToday(now)
+  const end = addDays(today, CLASS_SKIP_HORIZON_DAYS)
+  const dates: string[] = []
+  for (let date = today; date <= end; date = addDays(date, 1)) {
+    const matches = event.isRecurring
+      ? Number(event.dayOfWeek) === ymdWeekday(date)
+      : event.date === date
+    if (!matches) continue
+    const start = zonedWallTimeToUtc(date, event.startTime)
+    if (!start || start.getTime() <= now.getTime()) continue
+    dates.push(date)
+  }
+  return dates
+}
+
 /**
  * Upcoming classes are the next 7 Detroit calendar days.
  * The same class a week later is included only after today's occurrence has ended,

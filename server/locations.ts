@@ -463,6 +463,15 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
       .filter((row) => row.status === 'cancelled')
       .map((row) => `${row.profile_user_id}:${row.event_id}:${row.class_date}`),
   )
+  const skipRows = await db.execute({
+    sql: `SELECT profile_user_id, event_id, class_date, note
+          FROM class_date_skips
+          WHERE class_date >= ? AND class_date <= ?`,
+    args: [today, endDate],
+  })
+  const skipByKey = new Map(
+    skipRows.rows.map((row) => [`${row.profile_user_id}:${row.event_id}:${row.class_date}`, String(row.note || '')]),
+  )
   const rsvps = await db.execute({
     sql: `SELECT profile_user_id, event_id, class_date
           FROM class_rsvps
@@ -483,6 +492,7 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
           : event.date === classDate
         if (!matches || !showsInUpcomingWeek(event, classDate, now)) continue
         const key = `${profile.user_id}:${event.id}:${classDate}`
+        const instructorCancelled = skipByKey.has(key)
         classes.push({
           event_id: String(event.id),
           class_date: classDate,
@@ -493,7 +503,9 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
           instructor_share_id: profile.share_id,
           own_class: profile.user_id === account.id,
           going: going.has(key),
-          cancelled: cancelled.has(key),
+          cancelled: instructorCancelled || cancelled.has(key),
+          cancel_reason: instructorCancelled ? 'instructor' : cancelled.has(key) ? 'rsvps' : null,
+          cancel_note: instructorCancelled ? skipByKey.get(key) || '' : '',
         })
       }
     }

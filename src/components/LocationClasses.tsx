@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { bookingService, formatClassDate, formatClassTime, occurrenceKey } from '../lib/booking'
+import { bookingService, cancellationLabel, formatClassDate, formatClassTime, occurrenceKey } from '../lib/booking'
 import { newRsvpsClosed } from '../lib/classCalendar'
 import { locationService, type BookableClass, type Studio } from '../lib/locations'
 import { Button } from './ui/button'
@@ -155,7 +155,10 @@ export function LocationClasses({
                     {formatClassDate(item.classDate)} · {formatClassTime(item.startTime)} – {formatClassTime(item.endTime)}
                   </p>
                   {item.cancelled && (
-                    <p className="text-sm text-destructive">Cancelled — not enough RSVPs</p>
+                    <p className="text-sm text-destructive">{cancellationLabel(item.cancelReason, item.cancelNote)}</p>
+                  )}
+                  {item.cancelled && item.going && item.cancelReason === 'instructor' && (
+                    <p className="text-sm text-muted-foreground">You're still signed up.</p>
                   )}
                 </div>
                 {item.cancelled ? (

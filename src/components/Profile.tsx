@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Edit, Save, X, User, Calendar, Mail, LogOut, Share2, Check, Shield, ExternalLink, Upload, Trash2, Clock, List, Music, Plus, Instagram, Linkedin } from 'lucide-react';
 import { ScheduleEditor } from './ScheduleEditor';
+import { ClassDateSkipProvider, ClassDateSkipRows } from './ClassDateSkips';
 import { userProfileService } from '../lib/userProfileService';
 import { sequenceService } from '../lib/supabaseService';
 import type { UserProfile as DBUserProfile } from '../lib/supabase';
@@ -1070,6 +1071,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
               onDeleteEvent={handleDeleteEvent}
             />
           ) : (
+            <ClassDateSkipProvider enabled={!isViewerMode}>
             <Tabs defaultValue="recurring" className="w-full">
               <TabsList>
                 <TabsTrigger value="recurring">Weekly Classes</TabsTrigger>
@@ -1099,6 +1101,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                               Needs {event.minRsvps} RSVPs, or cancels {event.cancelHoursBefore || 12} hours before
                             </p>
                           ) : null}
+                          <ClassDateSkipRows event={event} />
                         </div>
                       </div>
                     ))}
@@ -1131,6 +1134,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                               Needs {event.minRsvps} RSVPs, or cancels {event.cancelHoursBefore || 12} hours before
                             </p>
                           ) : null}
+                          <ClassDateSkipRows event={event} />
                         </div>
                       </div>
                     ))}
@@ -1140,6 +1144,7 @@ export function Profile({ userEmail, userId, profileUserId, isViewerMode = false
                 </div>
               </TabsContent>
             </Tabs>
+            </ClassDateSkipProvider>
           )}
         </CardContent>
       </Card>

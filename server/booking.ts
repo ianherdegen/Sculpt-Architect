@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { getDb, parseJson, resolveViewMode, rowToBool } from './db.js'
 import { generateId } from './auth.js'
-import { newRsvpsClosed, RSVP_CLOSED_MESSAGE, showsInUpcomingWeek, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
+import { newRsvpsClosed, RSVP_CLOSED_MESSAGE, showsInUpcomingWeek, upcomingClassDates, zonedToday, zonedWallTimeToUtc } from '../src/lib/classCalendar.js'
 
 let schemaReady = false
 
@@ -61,6 +61,18 @@ export async function ensureBookingSchema() {
       rsvp_count INTEGER NOT NULL,
       min_rsvps INTEGER NOT NULL,
       decided_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(profile_user_id, event_id, class_date)
+    )
+  `)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS class_date_skips (
+      id TEXT PRIMARY KEY,
+      profile_user_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      class_date TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      notified_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(profile_user_id, event_id, class_date)
     )
   `)
@@ -164,24 +176,34 @@ export async function listMyRsvps(userId: string, email: string) {
   const db = getDb()
   const result = await db.execute({
     sql: `SELECT r.*, p.name AS instructor_name, p.share_id AS instructor_share_id,
-                 d.status AS decision_status
+                 d.status AS decision_status, s.id AS skip_id, s.note AS skip_note
           FROM class_rsvps r
           LEFT JOIN user_profiles p ON p.user_id = r.profile_user_id
           LEFT JOIN class_occurrence_decisions d
             ON d.profile_user_id = r.profile_user_id
            AND d.event_id = r.event_id
            AND d.class_date = r.class_date
+          LEFT JOIN class_date_skips s
+            ON s.profile_user_id = r.profile_user_id
+           AND s.event_id = r.event_id
+           AND s.class_date = r.class_date
           WHERE (r.user_id = ? OR (r.user_id IS NULL AND r.email = ?))
             AND r.profile_user_id != ?
           ORDER BY r.class_date ASC, r.start_time ASC`,
     args: [userId, email, userId],
   })
-  return result.rows.map((row) => ({
-    ...formatRsvp(row),
-    instructor_name: (row.instructor_name as string) || '',
-    instructor_share_id: (row.instructor_share_id as string) || '',
-    cancelled: row.decision_status === 'cancelled',
-  }))
+  return result.rows.map((row) => {
+    const instructorSkip = !!row.skip_id
+    const missedMinimum = row.decision_status === 'cancelled'
+    return {
+      ...formatRsvp(row),
+      instructor_name: (row.instructor_name as string) || '',
+      instructor_share_id: (row.instructor_share_id as string) || '',
+      cancelled: instructorSkip || missedMinimum,
+      cancel_reason: instructorSkip ? 'instructor' : missedMinimum ? 'rsvps' : null,
+      cancel_note: instructorSkip ? String(row.skip_note || '') : '',
+    }
+  })
 }
 
 export async function listRsvps(profileUserId: string, userId: string, email: string) {
@@ -302,10 +324,12 @@ export async function syncClassDecisions(profileUserId: string, events: any[], n
   })
   const decided = new Set(existing.rows.map((row) => `${row.event_id}:${row.class_date}`))
   const counts = await rsvpCounts(profileUserId, fromYmd, toYmd)
+  const skips = await skipsInRange(profileUserId, fromYmd, toYmd)
 
   for (const { event, requirement } of required) {
     for (const classDate of occurrenceDates(event, fromYmd, toYmd)) {
       const key = `${event.id}:${classDate}`
+      if (skips.has(key)) continue
       const start = zonedWallTimeToUtc(classDate, event.startTime)
       if (!start) continue
       const deadline = start.getTime() - requirement.hours * 60 * 60 * 1000
@@ -386,6 +410,37 @@ export async function listOccurrenceStatuses(profileUserId: string, events: any[
         rsvp_count: counts.get(key) || 0,
         deadline: new Date(start.getTime() - requirement.hours * 60 * 60 * 1000).toISOString(),
         status: decided === 'cancelled' || decided === 'confirmed' ? decided : 'pending',
+        reason: decided === 'cancelled' ? 'rsvps' : null,
+        note: '',
+      })
+    }
+  }
+  const skips = await skipsInRange(profileUserId, fromYmd, toYmd)
+  for (const status of statuses) {
+    const note = skips.get(`${status.event_id}:${status.class_date}`)
+    if (note == null) continue
+    status.status = 'cancelled'
+    status.reason = 'instructor'
+    status.note = note
+  }
+  const seen = new Set(statuses.map((status) => `${status.event_id}:${status.class_date}`))
+  for (const event of Array.isArray(events) ? events : []) {
+    if (!event?.id) continue
+    for (const classDate of occurrenceDates(event, fromYmd, toYmd)) {
+      const key = `${event.id}:${classDate}`
+      if (!skips.has(key) || seen.has(key)) continue
+      const start = zonedWallTimeToUtc(classDate, event.startTime)
+      if (!start) continue
+      statuses.push({
+        event_id: String(event.id),
+        class_date: classDate,
+        min_rsvps: 0,
+        cancel_hours_before: 0,
+        rsvp_count: counts.get(key) || 0,
+        deadline: start.toISOString(),
+        status: 'cancelled',
+        reason: 'instructor',
+        note: skips.get(key) || '',
       })
     }
   }
@@ -409,6 +464,14 @@ export async function createRsvp(profile: { userId: string; events: any[] }, acc
   }
   if (!showsInUpcomingWeek(event, classDate)) {
     return { error: 'That class is outside the upcoming week.', status: 400 as const }
+  }
+  const skip = await classDateSkip(profile.userId, eventId, classDate)
+  if (skip) {
+    const note = String(skip.note || '').trim()
+    return {
+      error: note ? `This class is cancelled (${note}).` : 'This class is cancelled.',
+      status: 409 as const,
+    }
   }
   await syncClassDecisions(profile.userId, profile.events)
   if (classRequirement(event) && await occurrenceDecision(profile.userId, eventId, classDate) === 'cancelled') {
@@ -475,4 +538,127 @@ export async function cancelRsvp(profileUserId: string, account: { id: string; e
             AND (user_id = ? OR (user_id IS NULL AND email = ?))`,
     args: [profileUserId, eventId, classDate, account.id, account.email],
   })
+}
+
+async function skipsInRange(profileUserId: string, fromYmd: string, toYmd: string) {
+  const db = getDb()
+  const result = await db.execute({
+    sql: `SELECT event_id, class_date, note
+          FROM class_date_skips
+          WHERE profile_user_id = ? AND class_date >= ? AND class_date <= ?`,
+    args: [profileUserId, fromYmd, toYmd],
+  })
+  const skips = new Map<string, string>()
+  for (const row of result.rows) {
+    skips.set(`${row.event_id}:${row.class_date}`, String(row.note || ''))
+  }
+  return skips
+}
+
+async function classDateSkip(profileUserId: string, eventId: string, classDate: string) {
+  const db = getDb()
+  const result = await db.execute({
+    sql: `SELECT id, note FROM class_date_skips
+          WHERE profile_user_id = ? AND event_id = ? AND class_date = ?`,
+    args: [profileUserId, eventId, classDate],
+  })
+  return result.rows[0] || null
+}
+
+async function instructorEvents(profileUserId: string) {
+  const db = getDb()
+  const result = await db.execute({
+    sql: 'SELECT events FROM user_profiles WHERE user_id = ?',
+    args: [profileUserId],
+  })
+  if (result.rows.length === 0) return null
+  return parseJson(result.rows[0].events, [])
+}
+
+function cleanSkipNote(value: unknown): { note: string } | { error: string } {
+  if (value == null || value === '') return { note: '' }
+  if (typeof value !== 'string') return { error: 'Enter a short note.' }
+  const note = value.replace(/\s+/g, ' ').trim()
+  if (note.length > 80) return { error: 'Keep the note under 80 characters.' }
+  return { note }
+}
+
+function formatSkip(row: Record<string, unknown>) {
+  return {
+    id: row.id as string,
+    event_id: row.event_id as string,
+    class_date: row.class_date as string,
+    note: String(row.note || ''),
+    notified_at: (row.notified_at as string) || null,
+  }
+}
+
+export async function listClassDateSkips(profileUserId: string, now = new Date()) {
+  await ensureBookingSchema()
+  const db = getDb()
+  const result = await db.execute({
+    sql: `SELECT id, event_id, class_date, note, notified_at
+          FROM class_date_skips
+          WHERE profile_user_id = ? AND class_date >= ?
+          ORDER BY class_date ASC`,
+    args: [profileUserId, addDays(zonedToday(now), -1)],
+  })
+  return result.rows.map((row) => formatSkip(row))
+}
+
+export async function skipClassDate(profileUserId: string, eventId: string, classDate: string, noteInput: unknown, now = new Date()) {
+  await ensureBookingSchema()
+  const parsed = parseYmd(classDate)
+  const noteResult = cleanSkipNote(noteInput)
+  if (!parsed) return { error: 'Pick an upcoming date.', status: 400 as const }
+  if ('error' in noteResult) return { error: noteResult.error, status: 400 as const }
+  const events = await instructorEvents(profileUserId)
+  if (!events) return { error: 'Profile not found.', status: 404 as const }
+  const event = findClass(events, eventId, parsed)
+  if (!event || !upcomingClassDates(event, now).includes(parsed)) {
+    return { error: 'Pick an upcoming date for this class.', status: 400 as const }
+  }
+  const db = getDb()
+  const id = generateId()
+  try {
+    await db.execute({
+      sql: `INSERT INTO class_date_skips
+            (id, profile_user_id, event_id, class_date, note)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [id, profileUserId, eventId, parsed, noteResult.note],
+    })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (/UNIQUE/i.test(message)) return { error: 'That date is already cancelled.', status: 409 as const }
+    throw err
+  }
+  return {
+    skip: formatSkip({
+      id,
+      event_id: eventId,
+      class_date: parsed,
+      note: noteResult.note,
+      notified_at: null,
+    }),
+  }
+}
+
+export async function restoreClassDate(profileUserId: string, eventId: string, classDate: string, now = new Date()) {
+  await ensureBookingSchema()
+  const parsed = parseYmd(classDate)
+  if (!parsed) return { error: 'That date is not cancelled.', status: 400 as const }
+  const events = await instructorEvents(profileUserId)
+  if (!events) return { error: 'Profile not found.', status: 404 as const }
+  const event = findClass(events, eventId, parsed)
+  if (!event || !upcomingClassDates(event, now).includes(parsed)) {
+    return { error: 'This class has already started.', status: 400 as const }
+  }
+  const existing = await classDateSkip(profileUserId, eventId, parsed)
+  if (!existing?.id) return { error: 'That date is not cancelled.', status: 404 as const }
+  const db = getDb()
+  await db.execute({
+    sql: 'DELETE FROM class_date_skips WHERE id = ?',
+    args: [existing.id],
+  })
+  return { skipId: existing.id as string, eventId, classDate: parsed }
 }

@@ -30,13 +30,16 @@ import {
   ensureBookingSchema,
   getBookableProfile,
   getViewMode,
+  listClassDateSkips,
   listMyRsvps,
   listOccurrenceStatuses,
   listReceivedRsvps,
   listRsvps,
   mergeClassRequirements,
+  restoreClassDate,
+  skipClassDate,
 } from './booking.js'
-import { ensureReminderSchema, icsForCalendarToken, sendDueClassReminders } from './reminders.js'
+import { ensureReminderSchema, icsForCalendarToken, notifyClassDateRestored, notifyClassDateSkipped, sendDueClassReminders } from './reminders.js'
 import { parseInstagram, parseLinkedIn } from '../src/lib/socialLinks.js'
 import {
   bindEventLocations,
@@ -747,6 +750,52 @@ app.post('/api/book/:shareId/rsvps/cancel', requireAuth, async (c) => {
 
   await cancelRsvp(profile.userId, { id: user.id, email: user.email.toLowerCase() }, body.eventId, body.classDate)
   return c.json({ success: true })
+})
+
+app.get('/api/classes/skips', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (!(await hasPermission(user.id, 'instructor'))) {
+    return c.json({ error: 'Instructor access required.' }, 403)
+  }
+  return c.json({ skips: await listClassDateSkips(user.id) })
+})
+
+app.post('/api/classes/skips', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (!(await hasPermission(user.id, 'instructor'))) {
+    return c.json({ error: 'Instructor access required.' }, 403)
+  }
+  const body = await c.req.json().catch(() => ({}))
+  if (!body.eventId || !body.classDate) return c.json({ error: 'Class date is required' }, 400)
+  const result = await skipClassDate(user.id, String(body.eventId), String(body.classDate), body.note)
+  if (result.error) return c.json({ error: result.error }, result.status)
+  let notice = { emailed: 0, failed: 0, logged: 0 }
+  try {
+    notice = await notifyClassDateSkipped(user.id, result.skip.event_id, result.skip.class_date)
+  } catch (err) {
+    console.error('Class cancellation email failed:', err)
+    notice = { emailed: 0, failed: 1, logged: 0 }
+  }
+  return c.json({ skip: result.skip, notice }, 201)
+})
+
+app.post('/api/classes/skips/restore', requireAuth, async (c) => {
+  const user = c.get('user')
+  if (!(await hasPermission(user.id, 'instructor'))) {
+    return c.json({ error: 'Instructor access required.' }, 403)
+  }
+  const body = await c.req.json().catch(() => ({}))
+  if (!body.eventId || !body.classDate) return c.json({ error: 'Class date is required' }, 400)
+  const result = await restoreClassDate(user.id, String(body.eventId), String(body.classDate))
+  if (result.error) return c.json({ error: result.error }, result.status)
+  let notice = { emailed: 0, failed: 0, logged: 0 }
+  try {
+    notice = await notifyClassDateRestored(user.id, result.eventId, result.classDate, result.skipId)
+  } catch (err) {
+    console.error('Class restored email failed:', err)
+    notice = { emailed: 0, failed: 1, logged: 0 }
+  }
+  return c.json({ success: true, notice })
 })
 
 function cronAuthorized(header: string | undefined) {

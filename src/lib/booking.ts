@@ -33,7 +33,6 @@ export interface ClassDateSkip {
   id: string
   eventId: string
   classDate: string
-  note: string
   notifiedAt: string | null
 }
 
@@ -161,11 +160,8 @@ function toRsvp(row: ApiRsvp): ClassRsvp {
   }
 }
 
-export function cancellationLabel(reason?: string | null, note?: string | null): string {
-  if (reason === 'instructor') {
-    const trimmed = note?.trim()
-    return trimmed ? `Cancelled — ${trimmed}` : 'Cancelled'
-  }
+export function cancellationLabel(reason?: string | null): string {
+  if (reason === 'instructor') return 'Cancelled'
   return 'Cancelled — not enough RSVPs'
 }
 
@@ -184,13 +180,13 @@ export function rsvpsStillNeeded(status: ClassRunStatus) {
 }
 
 export function formatRunStatus(status: ClassRunStatus): string {
-  if (status.status === 'cancelled') return cancellationLabel(status.reason, status.note)
+  if (status.status === 'cancelled') return cancellationLabel(status.reason)
   if (status.status === 'confirmed') return `On · ${status.rsvpCount} of ${status.minRsvps} RSVPs`
   return `${status.rsvpCount} of ${status.minRsvps} RSVPs needed by ${formatDecisionTime(status.deadline)}`
 }
 
 export function formatStudentRunStatus(status: ClassRunStatus): string {
-  if (status.status === 'cancelled') return cancellationLabel(status.reason, status.note)
+  if (status.status === 'cancelled') return cancellationLabel(status.reason)
   if (status.status === 'confirmed') return 'Confirmed'
   const remaining = rsvpsStillNeeded(status)
   if (remaining === 0) return 'Enough RSVPs to confirm this class'
@@ -233,18 +229,17 @@ export const bookingService = {
       id: row.id,
       eventId: row.event_id,
       classDate: row.class_date,
-      note: row.note || '',
       notifiedAt: row.notified_at || null,
     }))
   },
 
-  async skipDate(eventId: string, classDate: string, note: string): Promise<{ skip: ClassDateSkip; notice: SkipNotice }> {
+  async skipDate(eventId: string, classDate: string): Promise<{ skip: ClassDateSkip; notice: SkipNotice }> {
     const result = await api.post<{
       skip: { id: string; event_id: string; class_date: string; note?: string; notified_at?: string | null }
       notice?: SkipNotice
     }>(
       '/classes/skips',
-      { eventId, classDate, note },
+      { eventId, classDate },
       true,
     )
     return {
@@ -252,7 +247,6 @@ export const bookingService = {
         id: result.skip.id,
         eventId: result.skip.event_id,
         classDate: result.skip.class_date,
-        note: result.skip.note || '',
         notifiedAt: result.skip.notified_at || null,
       },
       notice: result.notice || { emailed: 0, failed: 0, logged: 0 },

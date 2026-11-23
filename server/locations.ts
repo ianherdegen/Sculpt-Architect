@@ -464,13 +464,13 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
       .map((row) => `${row.profile_user_id}:${row.event_id}:${row.class_date}`),
   )
   const skipRows = await db.execute({
-    sql: `SELECT profile_user_id, event_id, class_date, note
+    sql: `SELECT profile_user_id, event_id, class_date
           FROM class_date_skips
           WHERE class_date >= ? AND class_date <= ?`,
     args: [today, endDate],
   })
-  const skipByKey = new Map(
-    skipRows.rows.map((row) => [`${row.profile_user_id}:${row.event_id}:${row.class_date}`, String(row.note || '')]),
+  const skipByKey = new Set(
+    skipRows.rows.map((row) => `${row.profile_user_id}:${row.event_id}:${row.class_date}`),
   )
   const rsvps = await db.execute({
     sql: `SELECT profile_user_id, event_id, class_date
@@ -505,7 +505,7 @@ export async function listClassesAtLocation(locationId: string, account: { id: s
           going: going.has(key),
           cancelled: instructorCancelled || cancelled.has(key),
           cancel_reason: instructorCancelled ? 'instructor' : cancelled.has(key) ? 'rsvps' : null,
-          cancel_note: instructorCancelled ? skipByKey.get(key) || '' : '',
+          cancel_note: '',
         })
       }
     }

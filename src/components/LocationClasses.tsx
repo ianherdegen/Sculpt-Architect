@@ -155,7 +155,7 @@ export function LocationClasses({
                     {formatClassDate(item.classDate)} · {formatClassTime(item.startTime)} – {formatClassTime(item.endTime)}
                   </p>
                   {item.cancelled && (
-                    <p className="text-sm text-destructive">{cancellationLabel(item.cancelReason, item.cancelNote)}</p>
+                    <p className="text-sm text-destructive">{cancellationLabel(item.cancelReason)}</p>
                   )}
                   {item.cancelled && item.going && item.cancelReason === 'instructor' && (
                     <p className="text-sm text-muted-foreground">You're still signed up.</p>

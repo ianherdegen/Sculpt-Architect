@@ -1,7 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,7 +82,6 @@ export function ClassDateSkipRows({ event }: { event: SkipEvent }) {
   const [expanded, setExpanded] = useState(false);
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const [mode, setMode] = useState<'cancel' | 'restore' | null>(null);
-  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -101,7 +98,6 @@ export function ClassDateSkipRows({ event }: { event: SkipEvent }) {
   const open = (nextMode: 'cancel' | 'restore', date: string) => {
     setMode(nextMode);
     setActiveDate(date);
-    setNote('');
     setError(null);
   };
 
@@ -118,7 +114,7 @@ export function ClassDateSkipRows({ event }: { event: SkipEvent }) {
     setError(null);
     try {
       const notice = mode === 'cancel'
-        ? (await bookingService.skipDate(event.id, activeDate, note)).notice
+        ? (await bookingService.skipDate(event.id, activeDate)).notice
         : await bookingService.restoreDate(event.id, activeDate);
       await ctx.reload();
       setWarning(notice.failed > 0 ? 'The date was updated. Some students could not be emailed.' : null);
@@ -146,7 +142,7 @@ export function ClassDateSkipRows({ event }: { event: SkipEvent }) {
             <li key={date} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm">{formatSkipDate(date)}</p>
-                {skip && <p className="text-sm text-destructive">{cancellationLabel('instructor', skip.note)}</p>}
+                {skip && <p className="text-sm text-destructive">{cancellationLabel('instructor')}</p>}
               </div>
               {skip ? (
                 <Button type="button" variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => open('restore', date)}>
@@ -173,24 +169,12 @@ export function ClassDateSkipRows({ event }: { event: SkipEvent }) {
             <AlertDialogTitle>{mode === 'restore' ? 'Put this date back on?' : 'Cancel this date?'}</AlertDialogTitle>
             <AlertDialogDescription>
               {mode === 'restore'
-                ? `Put ${dateLabel} back on? Anyone who already RSVP'd stays signed up. Anyone who was emailed about the cancellation gets a note that this class is back on.`
+                ? `Put ${dateLabel} back on? Anyone who already RSVP'd stays signed up. Anyone who was emailed about the cancellation gets an email that this class is back on.`
                 : event.isRecurring
                   ? `Cancel ${dateLabel} only. ${event.title} stays on the weekly schedule. Anyone already RSVP'd is emailed, and that RSVP stays in place.`
                   : `Cancel ${dateLabel} only. Anyone already RSVP'd is emailed, and that RSVP stays in place.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {mode === 'cancel' && (
-            <div className="space-y-2">
-              <Label htmlFor={`skip-note-${event.id}`}>Note for students (optional)</Label>
-              <Input
-                id={`skip-note-${event.id}`}
-                value={note}
-                maxLength={80}
-                placeholder="Thanksgiving"
-                onChange={(change) => setNote(change.target.value)}
-              />
-            </div>
-          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>{mode === 'restore' ? 'Not now' : 'Keep this date'}</AlertDialogCancel>

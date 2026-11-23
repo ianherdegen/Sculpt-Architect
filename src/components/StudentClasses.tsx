@@ -114,7 +114,7 @@ function ClassRow({
       <div>
         <p className="font-medium">{rsvp.title}</p>
         {rsvp.cancelled && (
-          <p className="text-sm text-destructive">{cancellationLabel(rsvp.cancelReason, rsvp.cancelNote)}</p>
+          <p className="text-sm text-destructive">{cancellationLabel(rsvp.cancelReason)}</p>
         )}
         {rsvp.cancelled && rsvp.cancelReason === 'instructor' && upcoming && (
           <p className="text-sm text-muted-foreground">You're still signed up if this date is put back on.</p>

@@ -124,12 +124,9 @@ function cancellationHtml({ title, when, location, instructorName }) {
   `
 }
 
-function skipCancelHtml({ title, when, location, instructorName, note }) {
+function skipCancelHtml({ title, when, location, instructorName }) {
   const withLine = instructorName
     ? `<p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">With ${escapeHtml(instructorName)}</p>`
-    : ''
-  const noteLine = note
-    ? `<p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">${escapeHtml(note)}</p>`
     : ''
   return `
     <h2 style="color:#030213;font-size:24px;margin:0 0 12px;">This class was cancelled</h2>
@@ -137,7 +134,6 @@ function skipCancelHtml({ title, when, location, instructorName, note }) {
     <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(when)} Eastern Time</p>
     <p style="color:#717182;font-size:16px;line-height:1.6;margin:0 0 8px;">${escapeHtml(location)}</p>
     ${withLine}
-    ${noteLine}
     <p style="color:#030213;font-size:16px;line-height:1.6;margin:16px 0 0;">Your RSVP is still saved. If this date is put back on, you stay signed up.</p>
   `
 }
@@ -551,7 +547,7 @@ export async function notifyClassDateSkipped(profileUserId, eventId, classDate) 
   await ensureReminderSchema()
   const db = getDb()
   const skipResult = await db.execute({
-    sql: `SELECT id, note FROM class_date_skips
+    sql: `SELECT id FROM class_date_skips
           WHERE profile_user_id = ? AND event_id = ? AND class_date = ?`,
     args: [profileUserId, eventId, classDate],
   })
@@ -563,7 +559,6 @@ export async function notifyClassDateSkipped(profileUserId, eventId, classDate) 
     args: [profileUserId, eventId, classDate],
   })
   const name = await instructorName(profileUserId)
-  const note = String(skip.note || '').trim()
   const notice = { emailed: 0, failed: 0, logged: 0 }
   for (const rsvp of rsvpResult.rows) {
     const when = classWhen(rsvp.class_date, rsvp.start_time, rsvp.end_time)
@@ -575,7 +570,6 @@ export async function notifyClassDateSkipped(profileUserId, eventId, classDate) 
         when,
         location: rsvp.location,
         instructorName: name,
-        note,
       }),
       claimKind: `skip-cancel:${skip.id}`,
     })

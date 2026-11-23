@@ -767,7 +767,7 @@ app.post('/api/classes/skips', requireAuth, async (c) => {
   }
   const body = await c.req.json().catch(() => ({}))
   if (!body.eventId || !body.classDate) return c.json({ error: 'Class date is required' }, 400)
-  const result = await skipClassDate(user.id, String(body.eventId), String(body.classDate), body.note)
+  const result = await skipClassDate(user.id, String(body.eventId), String(body.classDate))
   if (result.error) return c.json({ error: result.error }, result.status)
   let notice = { emailed: 0, failed: 0, logged: 0 }
   try {
